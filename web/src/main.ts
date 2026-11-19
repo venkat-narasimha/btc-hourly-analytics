@@ -4,12 +4,14 @@
  * - Data fetching (meta.json -> quality_report.json -> btcusdt_1h.parquet)
  * - Auto-retry if artifacts are not yet ready (initial ETL in progress)
  * - Global date filter & timezone state
+ * - Light / Dark theme management (default light)
  * - Tab mounting / unmounting
  */
 
 import './style.css';
-import type { KlineRow, Meta, QualityReport, TabId } from './types';
+import type { KlineRow, Meta, QualityReport, TabId, Theme } from './types';
 import { fetchKlines, fetchMeta, fetchQualityReport, filterByRange } from './data/loader';
+import { getInitialTheme, saveTheme } from './ui/theme';
 import { createControls } from './ui/controls';
 import { createPriceChart, type PriceChartInstance } from './charts/price';
 import { createSeasonalityView, type SeasonalityChartInstance } from './charts/seasonality';
@@ -27,7 +29,7 @@ app.innerHTML = `
   <main id="main-content">
     <div id="status-container" class="status-overlay">
       <div class="spinner"></div>
-      <div id="status-text" style="font-size: 14px; color: #94a3b8;">Connecting to analytics server...</div>
+      <div id="status-text" style="font-size: 14px; color: var(--text-secondary);">Connecting to analytics server...</div>
     </div>
     <div id="tab-content" style="width: 100%; height: 100%; display: none;"></div>
   </main>
@@ -47,6 +49,10 @@ let activeTab: TabId = 'price';
 let isIst = false;
 let currentStartMs = 0;
 let currentEndMs = 0;
+let currentTheme: Theme = getInitialTheme();
+
+// Apply initial theme immediately to prevent flash of wrong theme
+saveTheme(currentTheme);
 
 // Current active view instance
 let activeChartInstance: { destroy(): void } | null = null;
@@ -112,11 +118,11 @@ function mountTab(tab: TabId) {
 
   switch (tab) {
     case 'price': {
-      activeChartInstance = createPriceChart(tabContent, filteredData, isIst);
+      activeChartInstance = createPriceChart(tabContent, filteredData, isIst, false, currentTheme);
       break;
     }
     case 'seasonality': {
-      activeChartInstance = createSeasonalityView(tabContent, filteredData);
+      activeChartInstance = createSeasonalityView(tabContent, filteredData, 'mean_return', currentTheme);
       break;
     }
     case 'quality': {
@@ -124,19 +130,19 @@ function mountTab(tab: TabId) {
       break;
     }
     case 'heatmap': {
-      activeChartInstance = createHeatmapView(tabContent, filteredData);
+      activeChartInstance = createHeatmapView(tabContent, filteredData, 'mean_return', currentTheme);
       break;
     }
     case 'volatility': {
-      activeChartInstance = createVolatilityView(tabContent, filteredData);
+      activeChartInstance = createVolatilityView(tabContent, filteredData, currentTheme);
       break;
     }
     case 'flow': {
-      activeChartInstance = createFlowView(tabContent, filteredData);
+      activeChartInstance = createFlowView(tabContent, filteredData, currentTheme);
       break;
     }
     case 'calendar': {
-      activeChartInstance = createCalendarView(tabContent, filteredData);
+      activeChartInstance = createCalendarView(tabContent, filteredData, currentTheme);
       break;
     }
   }
@@ -171,7 +177,7 @@ async function init() {
     hideStatus();
 
     // Initialize top controls bar
-    createControls(controlsContainer, currentStartMs, currentEndMs, {
+    createControls(controlsContainer, currentStartMs, currentEndMs, currentTheme, {
       onTabChange: (tab) => {
         mountTab(tab);
       },
@@ -185,6 +191,15 @@ async function init() {
         isIst = ist;
         if (activeTab === 'price' && activeChartInstance) {
           (activeChartInstance as PriceChartInstance).updateData(filteredData, isIst);
+        }
+      },
+      onThemeChange: (theme) => {
+        currentTheme = theme;
+        saveTheme(theme);
+        if (activeTab === 'quality') {
+          renderQualityReport(tabContent, metaData, qualityData);
+        } else if (activeChartInstance && 'setTheme' in activeChartInstance) {
+          (activeChartInstance as any).setTheme(theme);
         }
       },
     });

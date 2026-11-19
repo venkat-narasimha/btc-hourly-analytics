@@ -7,39 +7,44 @@
  * - Session overlay toggle (Asia 00-08, Europe 07-16, US 13-22 UTC)
  * - Tooltip with sample size n
  * - Zero line
+ * - Light ↔ Dark theme dynamic styling
  * - Persistent caption: "UTC buckets · returns, not prices · descriptive, not predictive."
  */
 
 import * as echarts from 'echarts';
-import type { KlineRow, SeasonalityMetric } from '../types';
+import type { KlineRow, SeasonalityMetric, Theme } from '../types';
 import {
   computeSeasonality,
   DOW_LABELS,
   METRIC_INFO,
 } from '../stats/aggregations';
 import { TRADING_SESSIONS } from '../stats/analytics';
+import { getChartTheme } from '../ui/theme';
 
 export interface SeasonalityChartInstance {
   updateData(data: KlineRow[]): void;
   setMetric(metric: SeasonalityMetric): void;
+  setTheme(theme: Theme): void;
   destroy(): void;
 }
 
 export function createSeasonalityView(
   container: HTMLElement,
   initialData: KlineRow[],
-  initialMetric: SeasonalityMetric = 'mean_return'
+  initialMetric: SeasonalityMetric = 'mean_return',
+  initialTheme: Theme = 'light'
 ): SeasonalityChartInstance {
   let currentData = initialData;
   let currentMetric: SeasonalityMetric = initialMetric;
+  let currentTheme: Theme = initialTheme;
   let showSessions = false;
 
   container.innerHTML = `
     <div class="seasonality-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
       <div class="seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
         <div style="display: flex; gap: 12px; align-items: center;">
-          <label style="font-size: 13px; color: #94a3b8; font-weight: 500;">Metric:</label>
-          <select id="seasonality-metric-select" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px; padding: 6px 10px; font-size: 13px; cursor: pointer;">
+          <label style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Metric:</label>
+          <select id="seasonality-metric-select" style="padding: 6px 10px; font-size: 13px; cursor: pointer;">
             <option value="mean_return">Mean Return (bps)</option>
             <option value="volatility">Volatility (σ, bps)</option>
             <option value="win_rate">Win Rate (%)</option>
@@ -48,24 +53,24 @@ export function createSeasonalityView(
             <option value="mean_hl_range">Mean H-L Range (bps)</option>
           </select>
 
-          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #94a3b8; cursor: pointer; margin-left: 12px;">
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer; margin-left: 12px;">
             <input type="checkbox" id="session-overlay-toggle" />
             <span>Trading Sessions Overlay</span>
           </label>
         </div>
 
-        <div style="font-size: 12px; color: #64748b; font-style: italic;">
+        <div style="font-size: 12px; color: var(--text-muted); font-style: italic;">
           UTC buckets · returns, not prices · descriptive, not predictive.
         </div>
       </div>
 
       <div class="seasonality-charts-grid" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 16px; flex: 1; min-height: 500px;">
-        <div class="chart-panel" style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px;">Hour of Day (UTC)</div>
+        <div class="chart-panel" style="padding: 12px; display: flex; flex-direction: column;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Hour of Day (UTC)</div>
           <div id="hour-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
         </div>
-        <div class="chart-panel" style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px;">Day of Week (UTC)</div>
+        <div class="chart-panel" style="padding: 12px; display: flex; flex-direction: column;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Day of Week (UTC)</div>
           <div id="dow-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
         </div>
       </div>
@@ -80,10 +85,11 @@ export function createSeasonalityView(
   const hourChartEl = container.querySelector('#hour-chart') as HTMLElement;
   const dowChartEl = container.querySelector('#dow-chart') as HTMLElement;
 
-  const hourChart = echarts.init(hourChartEl, 'dark');
-  const dowChart = echarts.init(dowChartEl, 'dark');
+  const hourChart = echarts.init(hourChartEl);
+  const dowChart = echarts.init(dowChartEl);
 
   function renderCharts() {
+    const colors = getChartTheme(currentTheme);
     const hourData = computeSeasonality(currentData, 'hour', currentMetric);
     const dowData = computeSeasonality(currentData, 'dow', currentMetric);
     const metricInfo = METRIC_INFO[currentMetric];
@@ -103,7 +109,7 @@ export function createSeasonalityView(
             },
             label: {
               show: true,
-              color: '#94a3b8',
+              color: colors.textSecondary,
               fontSize: 10,
               position: 'insideTop',
             },
@@ -119,6 +125,9 @@ export function createSeasonalityView(
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: colors.tooltipBg,
+        borderColor: colors.tooltipBorder,
+        textStyle: { color: colors.tooltipText },
         formatter: (params: any) => {
           const item = params[0];
           const idx = item.dataIndex;
@@ -126,7 +135,7 @@ export function createSeasonalityView(
           return `
             <div style="font-weight: 600; margin-bottom: 4px;">Hour ${hourX[idx]} UTC</div>
             <div>${metricInfo.label}: <strong>${stat.value.toFixed(2)} ${metricInfo.unit}</strong></div>
-            <div style="color: #94a3b8; font-size: 11px;">Sample size n: ${stat.n.toLocaleString()}</div>
+            <div style="color: ${colors.textSecondary}; font-size: 11px;">Sample size n: ${stat.n.toLocaleString()}</div>
           `;
         },
       },
@@ -134,15 +143,15 @@ export function createSeasonalityView(
       xAxis: {
         type: 'category',
         data: hourX,
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        axisLine: { lineStyle: { color: colors.borderColor } },
+        axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       yAxis: {
         type: 'value',
         name: metricInfo.unit,
-        nameTextStyle: { color: '#64748b', fontSize: 11 },
-        splitLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        nameTextStyle: { color: colors.textSecondary, fontSize: 11 },
+        splitLine: { lineStyle: { color: colors.gridLineColor } },
+        axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       series: [
         {
@@ -154,20 +163,20 @@ export function createSeasonalityView(
               if (currentMetric === 'mean_return') {
                 return v >= 0 ? '#10b981' : '#ef4444';
               }
-              return '#60a5fa';
+              return currentTheme === 'light' ? '#2563eb' : '#60a5fa';
             },
           },
           markLine: {
             silent: true,
             symbol: 'none',
-            data: [{ yAxis: 0, lineStyle: { color: '#475569', type: 'dashed' } }],
+            data: [{ yAxis: 0, lineStyle: { color: colors.borderColor, type: 'dashed' } }],
           },
           markArea: {
             data: markAreas,
           },
         },
       ],
-    });
+    }, true);
 
     // Day of week chart options
     const dowY = dowData.map(d => Number(d.value.toFixed(2)));
@@ -176,6 +185,9 @@ export function createSeasonalityView(
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: colors.tooltipBg,
+        borderColor: colors.tooltipBorder,
+        textStyle: { color: colors.tooltipText },
         formatter: (params: any) => {
           const item = params[0];
           const idx = item.dataIndex;
@@ -183,7 +195,7 @@ export function createSeasonalityView(
           return `
             <div style="font-weight: 600; margin-bottom: 4px;">${DOW_LABELS[idx]} (UTC)</div>
             <div>${metricInfo.label}: <strong>${stat.value.toFixed(2)} ${metricInfo.unit}</strong></div>
-            <div style="color: #94a3b8; font-size: 11px;">Sample size n: ${stat.n.toLocaleString()}</div>
+            <div style="color: ${colors.textSecondary}; font-size: 11px;">Sample size n: ${stat.n.toLocaleString()}</div>
           `;
         },
       },
@@ -191,15 +203,15 @@ export function createSeasonalityView(
       xAxis: {
         type: 'category',
         data: DOW_LABELS,
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        axisLine: { lineStyle: { color: colors.borderColor } },
+        axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       yAxis: {
         type: 'value',
         name: metricInfo.unit,
-        nameTextStyle: { color: '#64748b', fontSize: 11 },
-        splitLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        nameTextStyle: { color: colors.textSecondary, fontSize: 11 },
+        splitLine: { lineStyle: { color: colors.gridLineColor } },
+        axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       series: [
         {
@@ -211,17 +223,17 @@ export function createSeasonalityView(
               if (currentMetric === 'mean_return') {
                 return v >= 0 ? '#10b981' : '#ef4444';
               }
-              return '#38bdf8';
+              return currentTheme === 'light' ? '#0284c7' : '#38bdf8';
             },
           },
           markLine: {
             silent: true,
             symbol: 'none',
-            data: [{ yAxis: 0, lineStyle: { color: '#475569', type: 'dashed' } }],
+            data: [{ yAxis: 0, lineStyle: { color: colors.borderColor, type: 'dashed' } }],
           },
         },
       ],
-    });
+    }, true);
   }
 
   metricSelect.addEventListener('change', () => {
@@ -250,6 +262,10 @@ export function createSeasonalityView(
     setMetric(metric: SeasonalityMetric) {
       currentMetric = metric;
       metricSelect.value = metric;
+      renderCharts();
+    },
+    setTheme(th: Theme) {
+      currentTheme = th;
       renderCharts();
     },
     destroy() {

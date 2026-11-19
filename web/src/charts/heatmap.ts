@@ -1,33 +1,38 @@
 /**
  * 7x24 Heatmap (Day of Week x Hour of Day) using ECharts.
  * Shows seasonal return/volatility/volume across every hour of the week.
+ * Supports dynamic light and dark theme switching.
  */
 
 import * as echarts from 'echarts';
-import type { KlineRow, SeasonalityMetric } from '../types';
+import type { KlineRow, SeasonalityMetric, Theme } from '../types';
 import { computeHeatmap } from '../stats/analytics';
 import { DOW_LABELS, METRIC_INFO } from '../stats/aggregations';
+import { getChartTheme } from '../ui/theme';
 
 export interface HeatmapChartInstance {
   updateData(data: KlineRow[]): void;
   setMetric(metric: SeasonalityMetric): void;
+  setTheme(theme: Theme): void;
   destroy(): void;
 }
 
 export function createHeatmapView(
   container: HTMLElement,
   initialData: KlineRow[],
-  initialMetric: SeasonalityMetric = 'mean_return'
+  initialMetric: SeasonalityMetric = 'mean_return',
+  initialTheme: Theme = 'light'
 ): HeatmapChartInstance {
   let currentData = initialData;
   let currentMetric: SeasonalityMetric = initialMetric;
+  let currentTheme: Theme = initialTheme;
 
   container.innerHTML = `
     <div class="heatmap-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div style="display: flex; gap: 12px; align-items: center;">
-          <label style="font-size: 13px; color: #94a3b8; font-weight: 500;">Metric:</label>
-          <select id="heatmap-metric-select" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px; padding: 6px 10px; font-size: 13px; cursor: pointer;">
+          <label style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Metric:</label>
+          <select id="heatmap-metric-select" style="padding: 6px 10px; font-size: 13px; cursor: pointer;">
             <option value="mean_return">Mean Return (bps)</option>
             <option value="volatility">Volatility (σ, bps)</option>
             <option value="win_rate">Win Rate (%)</option>
@@ -36,12 +41,12 @@ export function createHeatmapView(
             <option value="mean_hl_range">Mean H-L Range (bps)</option>
           </select>
         </div>
-        <div style="font-size: 12px; color: #64748b; font-style: italic;">
+        <div style="font-size: 12px; color: var(--text-muted); font-style: italic;">
           ~350–360 observations per cell · beware multiple testing & noise · returns in UTC
         </div>
       </div>
-      <div class="chart-panel" style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; flex: 1; min-height: 480px;">
-        <div id="heatmap-chart" style="width: 100%; height: 100%; min-height: 460px;"></div>
+      <div class="chart-panel" style="padding: 12px; flex: 1; min-height: 480px; display: flex; flex-direction: column;">
+        <div id="heatmap-chart" style="width: 100%; flex: 1; min-height: 460px;"></div>
       </div>
     </div>
   `;
@@ -50,11 +55,12 @@ export function createHeatmapView(
   metricSelect.value = initialMetric;
 
   const chartEl = container.querySelector('#heatmap-chart') as HTMLElement;
-  const chart = echarts.init(chartEl, 'dark');
+  const chart = echarts.init(chartEl);
 
   const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
 
   function renderChart() {
+    const colors = getChartTheme(currentTheme);
     const cells = computeHeatmap(currentData, currentMetric);
     const metricInfo = METRIC_INFO[currentMetric];
 
@@ -73,7 +79,7 @@ export function createHeatmapView(
       orient: 'horizontal',
       left: 'center',
       bottom: '10px',
-      textStyle: { color: '#94a3b8' },
+      textStyle: { color: colors.textSecondary },
     };
 
     if (currentMetric === 'mean_return') {
@@ -83,14 +89,18 @@ export function createHeatmapView(
         min: -absMax,
         max: absMax,
         inRange: {
-          color: ['#ef4444', '#1e293b', '#10b981'],
+          color: currentTheme === 'light'
+            ? ['#ef4444', '#f1f5f9', '#10b981']
+            : ['#ef4444', '#1e293b', '#10b981'],
         },
       };
     } else {
       visualMapOpts = {
         ...visualMapOpts,
         inRange: {
-          color: ['#0f172a', '#1e3a8a', '#3b82f6', '#38bdf8', '#f8fafc'],
+          color: currentTheme === 'light'
+            ? ['#f8fafc', '#bfdbfe', '#60a5fa', '#2563eb', '#1e3a8a']
+            : ['#0f172a', '#1e3a8a', '#3b82f6', '#38bdf8', '#f8fafc'],
         },
       };
     }
@@ -99,12 +109,15 @@ export function createHeatmapView(
       backgroundColor: 'transparent',
       tooltip: {
         position: 'top',
+        backgroundColor: colors.tooltipBg,
+        borderColor: colors.tooltipBorder,
+        textStyle: { color: colors.tooltipText },
         formatter: (params: any) => {
           const [hIdx, dIdx, val, n] = params.data;
           return `
             <div style="font-weight: 600; margin-bottom: 4px;">${DOW_LABELS[dIdx]} ${hours[hIdx]} UTC</div>
             <div>${metricInfo.label}: <strong>${val} ${metricInfo.unit}</strong></div>
-            <div style="color: #94a3b8; font-size: 11px;">Sample size n: ${n.toLocaleString()} obs</div>
+            <div style="color: ${colors.textSecondary}; font-size: 11px;">Sample size n: ${n.toLocaleString()} obs</div>
           `;
         },
       },
@@ -112,16 +125,30 @@ export function createHeatmapView(
       xAxis: {
         type: 'category',
         data: hours,
-        splitArea: { show: true },
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        splitArea: {
+          show: true,
+          areaStyle: {
+            color: currentTheme === 'light'
+              ? ['rgba(0, 0, 0, 0.01)', 'rgba(0, 0, 0, 0.03)']
+              : ['rgba(255, 255, 255, 0.01)', 'rgba(255, 255, 255, 0.02)'],
+          },
+        },
+        axisLine: { lineStyle: { color: colors.borderColor } },
+        axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       yAxis: {
         type: 'category',
         data: DOW_LABELS,
-        splitArea: { show: true },
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        splitArea: {
+          show: true,
+          areaStyle: {
+            color: currentTheme === 'light'
+              ? ['rgba(0, 0, 0, 0.01)', 'rgba(0, 0, 0, 0.03)']
+              : ['rgba(255, 255, 255, 0.01)', 'rgba(255, 255, 255, 0.02)'],
+          },
+        },
+        axisLine: { lineStyle: { color: colors.borderColor } },
+        axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       visualMap: visualMapOpts,
       series: [
@@ -131,14 +158,14 @@ export function createHeatmapView(
           emphasis: {
             itemStyle: {
               shadowBlur: 10,
-              shadowColor: 'rgba(0, 0, 0, 0.5)',
-              borderColor: '#ffffff',
+              shadowColor: 'rgba(0, 0, 0, 0.3)',
+              borderColor: colors.textColor,
               borderWidth: 1,
             },
           },
         },
       ],
-    });
+    }, true);
   }
 
   metricSelect.addEventListener('change', () => {
@@ -159,6 +186,10 @@ export function createHeatmapView(
     setMetric(metric: SeasonalityMetric) {
       currentMetric = metric;
       metricSelect.value = metric;
+      renderChart();
+    },
+    setTheme(th: Theme) {
+      currentTheme = th;
       renderChart();
     },
     destroy() {

@@ -69,3 +69,6 @@ export type SeasonalityMetric =
 
 /** Tab identifiers */
 export type TabId = 'price' | 'seasonality' | 'quality' | 'heatmap' | 'volatility' | 'flow' | 'calendar';
+
+/** UI Theme */
+export type Theme = 'light' | 'dark';

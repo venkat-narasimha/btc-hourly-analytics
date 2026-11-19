@@ -5,6 +5,7 @@
  * - Volume histogram series on second pane (v5 multi-pane API)
  * - Log-scale toggle
  * - UTC ↔ IST toggle (+19,800s to display timestamp, axis label)
+ * - Light ↔ Dark theme dynamic styling
  * - Crosshair OHLCV tooltip
  * - Responsive auto-resize
  */
@@ -22,11 +23,13 @@ import {
   type HistogramData,
   type MouseEventParams,
 } from 'lightweight-charts';
-import type { KlineRow } from '../types';
+import type { KlineRow, Theme } from '../types';
+import { getChartTheme } from '../ui/theme';
 
 export interface PriceChartInstance {
   updateData(data: KlineRow[], isIst: boolean): void;
   setLogScale(enabled: boolean): void;
+  setTheme(theme: Theme): void;
   destroy(): void;
   resize(width: number, height: number): void;
 }
@@ -35,22 +38,26 @@ export function createPriceChart(
   container: HTMLElement,
   initialData: KlineRow[],
   isIst = false,
-  isLogScale = false
+  isLogScale = false,
+  initialTheme: Theme = 'light'
 ): PriceChartInstance {
+  let currentTheme = initialTheme;
+  let colors = getChartTheme(currentTheme);
+
   // Chart container layout
   container.innerHTML = `
     <div class="price-chart-wrapper" style="position: relative; width: 100%; height: 100%;">
       <div class="price-chart-toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
-        <label class="toggle-control" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #94a3b8; cursor: pointer;">
+        <label class="toggle-control" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer;">
           <input type="checkbox" id="log-scale-checkbox" ${isLogScale ? 'checked' : ''} />
           <span>Log Scale</span>
         </label>
-        <span class="timezone-indicator" style="font-size: 12px; color: #64748b; margin-left: auto;">
-          Time axis: <strong id="tz-axis-label" style="color: #cbd5e1;">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
+        <span class="timezone-indicator" style="font-size: 12px; color: var(--text-muted); margin-left: auto;">
+          Time axis: <strong id="tz-axis-label" style="color: var(--text-primary);">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
         </span>
       </div>
       <div class="price-chart-container" style="width: 100%; height: calc(100% - 36px); position: relative;"></div>
-      <div class="price-chart-tooltip" style="position: absolute; top: 44px; left: 16px; z-index: 10; pointer-events: none; font-size: 12px; color: #cbd5e1; background: rgba(15, 23, 42, 0.85); padding: 6px 10px; border-radius: 4px; border: 1px solid #334155; font-family: monospace; display: none;"></div>
+      <div class="price-chart-tooltip" style="position: absolute; top: 44px; left: 16px; z-index: 10; pointer-events: none; font-size: 12px; padding: 6px 10px; border-radius: 4px; font-family: monospace; display: none;"></div>
     </div>
   `;
 
@@ -59,29 +66,37 @@ export function createPriceChart(
   const logCheckbox = container.querySelector('#log-scale-checkbox') as HTMLInputElement;
   const tzLabel = container.querySelector('#tz-axis-label') as HTMLElement;
 
+  function applyTooltipTheme() {
+    tooltipEl.style.color = colors.tooltipText;
+    tooltipEl.style.backgroundColor = colors.tooltipBg;
+    tooltipEl.style.border = `1px solid ${colors.tooltipBorder}`;
+    tooltipEl.style.boxShadow = currentTheme === 'light' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none';
+  }
+  applyTooltipTheme();
+
   const chart: IChartApi = createChart(chartEl, {
     width: chartEl.clientWidth || 800,
     height: chartEl.clientHeight || 500,
     layout: {
-      background: { color: '#090d16' },
-      textColor: '#94a3b8',
+      background: { color: colors.background },
+      textColor: colors.textSecondary,
       fontSize: 12,
     },
     grid: {
-      vertLines: { color: '#1e293b' },
-      horzLines: { color: '#1e293b' },
+      vertLines: { color: colors.gridLineColor },
+      horzLines: { color: colors.gridLineColor },
     },
     crosshair: {
       mode: CrosshairMode.Normal,
-      vertLine: { color: '#475569', width: 1, style: 3 },
-      horzLine: { color: '#475569', width: 1, style: 3 },
+      vertLine: { color: colors.textSecondary, width: 1, style: 3 },
+      horzLine: { color: colors.textSecondary, width: 1, style: 3 },
     },
     rightPriceScale: {
-      borderColor: '#334155',
+      borderColor: colors.borderColor,
       mode: isLogScale ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
     },
     timeScale: {
-      borderColor: '#334155',
+      borderColor: colors.borderColor,
       timeVisible: true,
       secondsVisible: false,
     },
@@ -89,17 +104,17 @@ export function createPriceChart(
 
   // Candlestick series on Pane 0
   const candleSeries = chart.addSeries(CandlestickSeries, {
-    upColor: '#10b981',
-    downColor: '#ef4444',
-    borderUpColor: '#10b981',
-    borderDownColor: '#ef4444',
-    wickUpColor: '#10b981',
-    wickDownColor: '#ef4444',
+    upColor: colors.candleUp,
+    downColor: colors.candleDown,
+    borderUpColor: colors.candleUp,
+    borderDownColor: colors.candleDown,
+    wickUpColor: colors.candleUp,
+    wickDownColor: colors.candleDown,
   }, 0);
 
   // Volume histogram on Pane 1
   const volumeSeries = chart.addSeries(HistogramSeries, {
-    color: '#60a5fa',
+    color: colors.volumeBar,
     priceFormat: { type: 'volume' },
   }, 1);
 
@@ -166,9 +181,9 @@ export function createPriceChart(
 
     tooltipEl.innerHTML = `
       <div style="font-weight: 600; margin-bottom: 2px;">${dateStr} (${isIst ? 'IST' : 'UTC'})</div>
-      <div>O: <span style="color:#f8fafc">${candle.open.toFixed(2)}</span>  H: <span style="color:#f8fafc">${candle.high.toFixed(2)}</span></div>
-      <div>L: <span style="color:#f8fafc">${candle.low.toFixed(2)}</span>  C: <span style="color:#f8fafc">${candle.close.toFixed(2)}</span></div>
-      ${vol ? `<div>Vol: <span style="color:#60a5fa">${vol.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} BTC</span></div>` : ''}
+      <div>O: <span style="font-weight:600">${candle.open.toFixed(2)}</span>  H: <span style="font-weight:600">${candle.high.toFixed(2)}</span></div>
+      <div>L: <span style="font-weight:600">${candle.low.toFixed(2)}</span>  C: <span style="font-weight:600">${candle.close.toFixed(2)}</span></div>
+      ${vol ? `<div>Vol: <span style="color:${colors.volumeBar}">${vol.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} BTC</span></div>` : ''}
     `;
     tooltipEl.style.display = 'block';
   });
@@ -201,6 +216,29 @@ export function createPriceChart(
   });
   ro.observe(chartEl);
 
+  function applyChartTheme(th: Theme) {
+    currentTheme = th;
+    colors = getChartTheme(th);
+    applyTooltipTheme();
+
+    chart.applyOptions({
+      layout: {
+        background: { color: colors.background },
+        textColor: colors.textSecondary,
+      },
+      grid: {
+        vertLines: { color: colors.gridLineColor },
+        horzLines: { color: colors.gridLineColor },
+      },
+      rightPriceScale: {
+        borderColor: colors.borderColor,
+      },
+      timeScale: {
+        borderColor: colors.borderColor,
+      },
+    });
+  }
+
   return {
     updateData(data: KlineRow[], ist: boolean) {
       isIst = ist;
@@ -214,6 +252,9 @@ export function createPriceChart(
       chart.priceScale('right', 0).applyOptions({
         mode: enabled ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
       });
+    },
+    setTheme(th: Theme) {
+      applyChartTheme(th);
     },
     resize(width: number, height: number) {
       chart.resize(width, height);
