@@ -1,0 +1,28 @@
+{
+  "name": "btc-hourly-analytics-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "echarts": "5.5.1",
+    "hyparquet": "1.7.1",
+    "lightweight-charts": "5.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "eslint": "9.17.0",
+    "@eslint/js": "9.17.0",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.1",
+    "vite": "6.0.3",
+    "vitest": "2.1.8",
+    "globals": "15.14.0"
+  }
+}

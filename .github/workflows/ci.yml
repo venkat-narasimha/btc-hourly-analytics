@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  pipeline:
+    name: Pipeline (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check pipeline/
+
+      - name: Test (pytest)
+        run: pytest pipeline/tests/ -v --tb=short
+
+  web:
+    name: Web (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci
+
+      - name: Lint (eslint)
+        run: cd web && npm run lint
+
+      - name: Type check
+        run: cd web && npx tsc --noEmit
+
+      - name: Test (vitest)
+        run: cd web && npm test -- --run
+
+      - name: Build
+        run: cd web && npm run build
