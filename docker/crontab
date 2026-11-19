@@ -1,0 +1,2 @@
+# Daily ETL refresh at 03:30 UTC
+30 3 * * * python -m pipeline.run --out /data

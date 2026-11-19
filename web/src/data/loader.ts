@@ -24,16 +24,8 @@ export async function fetchQualityReport(): Promise<QualityReport> {
 export async function fetchKlines(): Promise<KlineRow[]> {
   const url = `${DATA_BASE}/btcusdt_1h.parquet`;
   const file = await asyncBufferFromUrl({ url });
-  const rows: KlineRow[] = [];
-  await parquetReadObjects({
-    file,
-    onComplete: (data: Record<string, unknown>[]) => {
-      for (const row of data) {
-        rows.push(row as unknown as KlineRow);
-      }
-    },
-  });
-  return rows;
+  const rows = await parquetReadObjects({ file });
+  return rows as unknown as KlineRow[];
 }
 
 /** Filter klines by date range (inclusive). */

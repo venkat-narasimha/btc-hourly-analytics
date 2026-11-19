@@ -13,3 +13,15 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Why**: Docker on this machine exposes `docker-compose` but not the `docker compose` plugin alias.
 - **Alternative**: Use `docker-compose` command. Compose file format is identical. README documents both.
 - **Impact**: None to functionality; `Makefile` and docs use `docker-compose`.
+
+## DEV-003: `hyparquet` package version pinned to `1.33.1`
+- **What**: PLAN.md §4 specifies `hyparquet` without exact minor version or mentions 1.7.1 in initial drafts.
+- **Why**: Version `1.7.1` is not published on npm registry; the stable version published is `1.33.1`.
+- **Alternative**: Pinned `hyparquet` to `1.33.1`.
+- **Impact**: Fully compatible with zero dependencies; Promise-based API `parquetReadObjects({ file })` operates directly.
+
+## DEV-004: All downloaded Binance UM futures files use millisecond timestamps
+- **What**: PLAN.md §3 Gotcha 1 noted that files from 2025-01-01 onwards may use microseconds (`> 1e14`).
+- **Why**: In runtime ingestion across 82 monthly and 18 daily files (through 2026-11), all timestamps encountered were <= 10^14 (standard millisecond epoch timestamps).
+- **Alternative**: Keep runtime auto-detection threshold logic active in `normalize_timestamp()` and record stats in quality report (`files_ms: 100, files_us: 0`).
+- **Impact**: Zero rows required microsecond division, but handling remains in place if future archives switch.

@@ -1,0 +1,261 @@
+/**
+ * Seasonality Chart component using Apache ECharts.
+ * Shows:
+ * - Hour-of-Day (0-23 UTC) seasonality bar chart
+ * - Day-of-Week (Mon-Sun UTC) seasonality bar chart
+ * - Metric dropdown
+ * - Session overlay toggle (Asia 00-08, Europe 07-16, US 13-22 UTC)
+ * - Tooltip with sample size n
+ * - Zero line
+ * - Persistent caption: "UTC buckets · returns, not prices · descriptive, not predictive."
+ */
+
+import * as echarts from 'echarts';
+import type { KlineRow, SeasonalityMetric } from '../types';
+import {
+  computeSeasonality,
+  DOW_LABELS,
+  METRIC_INFO,
+} from '../stats/aggregations';
+import { TRADING_SESSIONS } from '../stats/analytics';
+
+export interface SeasonalityChartInstance {
+  updateData(data: KlineRow[]): void;
+  setMetric(metric: SeasonalityMetric): void;
+  destroy(): void;
+}
+
+export function createSeasonalityView(
+  container: HTMLElement,
+  initialData: KlineRow[],
+  initialMetric: SeasonalityMetric = 'mean_return'
+): SeasonalityChartInstance {
+  let currentData = initialData;
+  let currentMetric: SeasonalityMetric = initialMetric;
+  let showSessions = false;
+
+  container.innerHTML = `
+    <div class="seasonality-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
+      <div class="seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <label style="font-size: 13px; color: #94a3b8; font-weight: 500;">Metric:</label>
+          <select id="seasonality-metric-select" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px; padding: 6px 10px; font-size: 13px; cursor: pointer;">
+            <option value="mean_return">Mean Return (bps)</option>
+            <option value="volatility">Volatility (σ, bps)</option>
+            <option value="win_rate">Win Rate (%)</option>
+            <option value="total_volume">Total Volume (BTC)</option>
+            <option value="taker_buy_ratio">Taker Buy Ratio</option>
+            <option value="mean_hl_range">Mean H-L Range (bps)</option>
+          </select>
+
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #94a3b8; cursor: pointer; margin-left: 12px;">
+            <input type="checkbox" id="session-overlay-toggle" />
+            <span>Trading Sessions Overlay</span>
+          </label>
+        </div>
+
+        <div style="font-size: 12px; color: #64748b; font-style: italic;">
+          UTC buckets · returns, not prices · descriptive, not predictive.
+        </div>
+      </div>
+
+      <div class="seasonality-charts-grid" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 16px; flex: 1; min-height: 500px;">
+        <div class="chart-panel" style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; display: flex; flex-direction: column;">
+          <div style="font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px;">Hour of Day (UTC)</div>
+          <div id="hour-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
+        </div>
+        <div class="chart-panel" style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; display: flex; flex-direction: column;">
+          <div style="font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px;">Day of Week (UTC)</div>
+          <div id="dow-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const metricSelect = container.querySelector('#seasonality-metric-select') as HTMLSelectElement;
+  metricSelect.value = initialMetric;
+
+  const sessionToggle = container.querySelector('#session-overlay-toggle') as HTMLInputElement;
+
+  const hourChartEl = container.querySelector('#hour-chart') as HTMLElement;
+  const dowChartEl = container.querySelector('#dow-chart') as HTMLElement;
+
+  const hourChart = echarts.init(hourChartEl, 'dark');
+  const dowChart = echarts.init(dowChartEl, 'dark');
+
+  function renderCharts() {
+    const hourData = computeSeasonality(currentData, 'hour', currentMetric);
+    const dowData = computeSeasonality(currentData, 'dow', currentMetric);
+    const metricInfo = METRIC_INFO[currentMetric];
+
+    // Hour of day chart options
+    const hourX = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+    const hourY = hourData.map(d => Number(d.value.toFixed(2)));
+
+    // Mark areas for sessions if toggled
+    const markAreas = showSessions
+      ? TRADING_SESSIONS.map(s => ([
+          {
+            name: s.name,
+            xAxis: `${s.startHour.toString().padStart(2, '0')}:00`,
+            itemStyle: {
+              color: s.color.replace(')', ', 0.12)').replace('rgb', 'rgba').replace('#3b82f6', 'rgba(59, 130, 246, 0.12)').replace('#10b981', 'rgba(16, 185, 129, 0.12)').replace('#f59e0b', 'rgba(245, 158, 11, 0.12)'),
+            },
+            label: {
+              show: true,
+              color: '#94a3b8',
+              fontSize: 10,
+              position: 'insideTop',
+            },
+          },
+          {
+            xAxis: `${Math.min(s.endHour, 23).toString().padStart(2, '0')}:00`,
+          },
+        ]))
+      : [];
+
+    hourChart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          const item = params[0];
+          const idx = item.dataIndex;
+          const stat = hourData[idx];
+          return `
+            <div style="font-weight: 600; margin-bottom: 4px;">Hour ${hourX[idx]} UTC</div>
+            <div>${metricInfo.label}: <strong>${stat.value.toFixed(2)} ${metricInfo.unit}</strong></div>
+            <div style="color: #94a3b8; font-size: 11px;">Sample size n: ${stat.n.toLocaleString()}</div>
+          `;
+        },
+      },
+      grid: { left: 55, right: 20, top: 25, bottom: 30 },
+      xAxis: {
+        type: 'category',
+        data: hourX,
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#94a3b8', fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: metricInfo.unit,
+        nameTextStyle: { color: '#64748b', fontSize: 11 },
+        splitLine: { lineStyle: { color: '#1e293b' } },
+        axisLabel: { color: '#94a3b8', fontSize: 11 },
+      },
+      series: [
+        {
+          type: 'bar',
+          data: hourY,
+          itemStyle: {
+            color: (params: any) => {
+              const v = params.value;
+              if (currentMetric === 'mean_return') {
+                return v >= 0 ? '#10b981' : '#ef4444';
+              }
+              return '#60a5fa';
+            },
+          },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [{ yAxis: 0, lineStyle: { color: '#475569', type: 'dashed' } }],
+          },
+          markArea: {
+            data: markAreas,
+          },
+        },
+      ],
+    });
+
+    // Day of week chart options
+    const dowY = dowData.map(d => Number(d.value.toFixed(2)));
+    dowChart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          const item = params[0];
+          const idx = item.dataIndex;
+          const stat = dowData[idx];
+          return `
+            <div style="font-weight: 600; margin-bottom: 4px;">${DOW_LABELS[idx]} (UTC)</div>
+            <div>${metricInfo.label}: <strong>${stat.value.toFixed(2)} ${metricInfo.unit}</strong></div>
+            <div style="color: #94a3b8; font-size: 11px;">Sample size n: ${stat.n.toLocaleString()}</div>
+          `;
+        },
+      },
+      grid: { left: 55, right: 20, top: 25, bottom: 30 },
+      xAxis: {
+        type: 'category',
+        data: DOW_LABELS,
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#94a3b8', fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: metricInfo.unit,
+        nameTextStyle: { color: '#64748b', fontSize: 11 },
+        splitLine: { lineStyle: { color: '#1e293b' } },
+        axisLabel: { color: '#94a3b8', fontSize: 11 },
+      },
+      series: [
+        {
+          type: 'bar',
+          data: dowY,
+          itemStyle: {
+            color: (params: any) => {
+              const v = params.value;
+              if (currentMetric === 'mean_return') {
+                return v >= 0 ? '#10b981' : '#ef4444';
+              }
+              return '#38bdf8';
+            },
+          },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [{ yAxis: 0, lineStyle: { color: '#475569', type: 'dashed' } }],
+          },
+        },
+      ],
+    });
+  }
+
+  metricSelect.addEventListener('change', () => {
+    currentMetric = metricSelect.value as SeasonalityMetric;
+    renderCharts();
+  });
+
+  sessionToggle.addEventListener('change', () => {
+    showSessions = sessionToggle.checked;
+    renderCharts();
+  });
+
+  const ro = new ResizeObserver(() => {
+    hourChart.resize();
+    dowChart.resize();
+  });
+  ro.observe(container);
+
+  renderCharts();
+
+  return {
+    updateData(data: KlineRow[]) {
+      currentData = data;
+      renderCharts();
+    },
+    setMetric(metric: SeasonalityMetric) {
+      currentMetric = metric;
+      metricSelect.value = metric;
+      renderCharts();
+    },
+    destroy() {
+      ro.disconnect();
+      hourChart.dispose();
+      dowChart.dispose();
+    },
+  };
+}
