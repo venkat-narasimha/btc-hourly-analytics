@@ -24,8 +24,24 @@ export async function fetchQualityReport(): Promise<QualityReport> {
 export async function fetchKlines(): Promise<KlineRow[]> {
   const url = `${DATA_BASE}/btcusdt_1h.parquet`;
   const file = await asyncBufferFromUrl({ url });
-  const rows = await parquetReadObjects({ file });
-  return rows as unknown as KlineRow[];
+  const rawRows = await parquetReadObjects({ file });
+  return rawRows.map((r: any) => ({
+    open_time_ms: Number(r.open_time_ms),
+    open: Number(r.open),
+    high: Number(r.high),
+    low: Number(r.low),
+    close: Number(r.close),
+    volume: Number(r.volume),
+    quote_volume: Number(r.quote_volume),
+    trades: Number(r.trades),
+    taker_buy_volume: Number(r.taker_buy_volume),
+    taker_buy_quote_volume: Number(r.taker_buy_quote_volume),
+    log_ret: r.log_ret !== null && r.log_ret !== undefined ? Number(r.log_ret) : null,
+    hour: Number(r.hour),
+    dow: Number(r.dow),
+    taker_buy_ratio: r.taker_buy_ratio !== null && r.taker_buy_ratio !== undefined ? Number(r.taker_buy_ratio) : null,
+    hl_range: Number(r.hl_range),
+  }));
 }
 
 /** Filter klines by date range (inclusive). */

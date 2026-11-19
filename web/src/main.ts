@@ -95,7 +95,7 @@ async function loadArtifactsWithRetry(maxRetries = 30, delayMs = 3000): Promise<
   }
 
   // Sort chronologically just in case
-  allData.sort((a, b) => a.open_time_ms - b.open_time_ms);
+  allData.sort((a, b) => Number(a.open_time_ms) - Number(b.open_time_ms));
   currentStartMs = allData[0].open_time_ms;
   currentEndMs = allData[allData.length - 1].open_time_ms;
   filteredData = allData;
