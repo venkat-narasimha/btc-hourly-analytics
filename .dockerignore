@@ -1,0 +1,9 @@
+node_modules
+web/node_modules
+web/dist
+.venv
+artifacts
+.git
+.agents
+__pycache__
+*.pyc
