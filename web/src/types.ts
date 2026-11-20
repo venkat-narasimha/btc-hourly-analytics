@@ -19,6 +19,12 @@ export interface KlineRow {
   hl_range: number;
 }
 
+export interface SourceFile {
+  url: string;
+  sha256: string;
+  kind: 'monthly' | 'daily';
+}
+
 /** meta.json structure */
 export interface Meta {
   schema_version: string;
@@ -32,6 +38,8 @@ export interface Meta {
   generated_at_utc: string;
   pipeline_git_sha: string;
   release_id: string;
+  artifact_sha256?: string;
+  source_files?: SourceFile[];
   files_downloaded: { monthly: number; daily: number };
   source_base_url: string;
 }

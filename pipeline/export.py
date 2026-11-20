@@ -4,6 +4,7 @@ Export module: write parquet, meta.json, quality_report.json.
 Implements atomic release swap per §6 step 7.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -78,6 +79,7 @@ def write_meta(
     release_id: str,
     ingest_stats: dict,
     out_path: Path,
+    artifact_sha256: str = "",
 ) -> dict:
     """Write meta.json per §5."""
     now_utc = datetime.now(timezone.utc)
@@ -97,6 +99,8 @@ def write_meta(
         "generated_at_utc": now_utc.isoformat(),
         "pipeline_git_sha": get_git_sha(),
         "release_id": release_id,
+        "artifact_sha256": artifact_sha256,
+        "source_files": ingest_stats.get("source_files", []),
         "files_downloaded": {
             "monthly": ingest_stats.get("monthly_files", 0),
             "daily": ingest_stats.get("daily_files", 0),
@@ -278,8 +282,10 @@ def export(
     release_dir.mkdir(parents=True, exist_ok=True)
 
     # Write artifacts
-    df_to_parquet(df, release_dir / "btcusdt_1h.parquet")
-    write_meta(df, release_id, ingest_stats, release_dir / "meta.json")
+    parquet_path = release_dir / "btcusdt_1h.parquet"
+    df_to_parquet(df, parquet_path)
+    artifact_sha256 = hashlib.sha256(parquet_path.read_bytes()).hexdigest()
+    write_meta(df, release_id, ingest_stats, release_dir / "meta.json", artifact_sha256=artifact_sha256)
     write_quality_report(
         coverage, ingest_stats, quarantine_reasons, duplicates_removed,
         release_dir / "quality_report.json",

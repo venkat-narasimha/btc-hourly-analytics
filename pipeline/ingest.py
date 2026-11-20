@@ -132,6 +132,7 @@ def download_and_verify(
     cache_dir: Path,
     force_refetch: bool = False,
     stats: Optional[dict] = None,
+    kind: Optional[str] = None,
 ) -> Optional[bytes]:
     """
     Download a ZIP + its CHECKSUM, verify, cache.
@@ -155,6 +156,12 @@ def download_and_verify(
             logger.debug(f"Cache hit: {zip_url}")
             if stats is not None:
                 stats["checksums_verified"] = stats.get("checksums_verified", 0) + 1
+                if kind is not None:
+                    stats.setdefault("source_files", []).append({
+                        "url": zip_url,
+                        "sha256": expected_hash,
+                        "kind": kind,
+                    })
             return cached_bytes
         else:
             logger.warning(f"Cache checksum mismatch, re-downloading: {zip_url}")
@@ -176,6 +183,12 @@ def download_and_verify(
 
     if stats is not None:
         stats["checksums_verified"] = stats.get("checksums_verified", 0) + 1
+        if kind is not None:
+            stats.setdefault("source_files", []).append({
+                "url": zip_url,
+                "sha256": expected_hash,
+                "kind": kind,
+            })
 
     # Cache
     cached.parent.mkdir(parents=True, exist_ok=True)
@@ -287,6 +300,7 @@ def ingest(
         "header_files": 0,
         "monthly_files": 0,
         "daily_files": 0,
+        "source_files": [],
     }
 
     all_dfs: list[pd.DataFrame] = []
@@ -309,6 +323,7 @@ def ingest(
                     monthly_checksum_url(year, month),
                     cache_dir,
                     stats=stats,
+                    kind="monthly",
                 )
             except ValueError as e:
                 logger.error(f"Checksum failure for monthly {year}-{month:02d}: {e}")
@@ -332,6 +347,7 @@ def ingest(
                             daily_checksum_url(day_str),
                             cache_dir,
                             stats=stats,
+                            kind="daily",
                         )
                     except ValueError as e:
                         logger.error(f"Checksum failure for daily {day_str}: {e}")
@@ -359,6 +375,7 @@ def ingest(
                     cache_dir,
                     force_refetch=force,
                     stats=stats,
+                    kind="daily",
                 )
             except ValueError as e:
                 logger.error(f"Checksum failure for daily {day_str}: {e}")

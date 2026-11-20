@@ -175,9 +175,13 @@ class TestDownloadAndVerify:
             checksum_url="http://fake/BTCUSDT-1h-2024-01.zip.CHECKSUM",
             cache_dir=tmp_path,
             stats=stats,
+            kind="monthly",
         )
         assert res == zip_bytes
         assert stats.get("checksums_verified") == 1
+        assert stats.get("source_files") == [
+            {"url": "http://fake/BTCUSDT-1h-2024-01.zip", "sha256": sha, "kind": "monthly"}
+        ]
 
     def test_warm_cache_hit_increments_checksums_verified(self, tmp_path, monkeypatch, sample_csv_ms):
         """M1: Cache hit path MUST increment checksums_verified."""
@@ -307,12 +311,18 @@ class TestIngestMonthlyFallback:
         # Fallback days for the 404 month
         monkeypatch.setattr("pipeline.ingest.enumerate_month_days", lambda y, m: ["2024-01-01"])
 
-        def mock_download_and_verify(client, zip_url, checksum_url, cache_dir, force_refetch=False, stats=None):
+        def mock_download_and_verify(client, zip_url, checksum_url, cache_dir, force_refetch=False, stats=None, kind=None):
             if "monthly" in zip_url:
                 return None  # 404 for monthly
             if "daily" in zip_url:
                 if stats is not None:
                     stats["checksums_verified"] = stats.get("checksums_verified", 0) + 1
+                    if kind is not None:
+                        stats.setdefault("source_files", []).append({
+                            "url": zip_url,
+                            "sha256": "fake_sha",
+                            "kind": kind,
+                        })
                 return zip_bytes
             return None
 

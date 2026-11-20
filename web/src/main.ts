@@ -464,7 +464,7 @@ function mountTab(tab: TabId) {
       }
 
       case 'quality': {
-        renderQualityReport(content, metaData, qualityData);
+        renderQualityReport(content, metaData, qualityData, allData);
         break;
       }
 

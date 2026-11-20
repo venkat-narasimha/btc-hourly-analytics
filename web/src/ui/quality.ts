@@ -9,13 +9,14 @@
  * - Provenance (release ID, git sha, timestamp, source URL)
  */
 
-import type { Meta, QualityReport } from '../types';
+import type { KlineRow, Meta, QualityReport } from '../types';
 import { renderInfoTooltip, renderInspectTrigger } from './tooltip';
 
 export function renderQualityReport(
   container: HTMLElement,
   meta: Meta | null,
-  report: QualityReport | null
+  report: QualityReport | null,
+  data?: KlineRow[] | null
 ): void {
   if (!meta || !report) {
     container.innerHTML = `
@@ -57,6 +58,12 @@ export function renderQualityReport(
           <span class="badge ${covClass === 'positive' ? 'badge-positive' : 'badge-warning'}">
             ${report.coverage_pct >= 99 ? 'Institutional Grade' : 'Minor Exchange Gaps'}
           </span>
+          <button type="button" class="btn btn-secondary" id="btn-export-manifest" style="gap: 6px; padding: 4px 10px; font-size: var(--text-xs);">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 2v8M4 7l4 4 4-4M2 13h12" />
+            </svg>
+            Export Manifest
+          </button>
         </div>
       </div>
 
@@ -324,6 +331,12 @@ export function renderQualityReport(
               <span class="insight-label">Pipeline Git Commit SHA</span>
               <span class="insight-value font-mono">${meta.pipeline_git_sha}</span>
             </div>
+            ${meta.artifact_sha256 ? `
+              <div class="insight-row">
+                <span class="insight-label">Parquet Artifact SHA-256</span>
+                <span class="insight-value font-mono text-info" style="font-size: var(--text-xs); word-break: break-all;">${meta.artifact_sha256}</span>
+              </div>
+            ` : ''}
             <div class="insight-row">
               <span class="insight-label">Market & Symbol</span>
               <span class="insight-value">${meta.symbol} · ${meta.interval} · ${meta.market}</span>
@@ -339,6 +352,70 @@ export function renderQualityReport(
           </div>
         </div>
       </div>
+
+      <!-- Independent Verification Kit Card -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">
+              External Verification Kit (Python 3.12 stdlib)
+            </div>
+            <div class="chart-card-subtitle">
+              Verify this release offline from source archives using standard library Python (no pandas, numpy, or duckdb)
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary" id="btn-export-manifest-card" style="gap: 6px;">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 2v8M4 7l4 4 4-4M2 13h12" />
+            </svg>
+            Export Verification Manifest
+          </button>
+        </div>
+        <div class="chart-card-body">
+          <div style="font-size: var(--text-sm); line-height: 1.6; color: var(--text-secondary);">
+            <p style="margin-bottom: var(--space-2);">
+              Audit every published KPI, checksum, and convention independently of this web client or backend pipeline.
+            </p>
+            <div class="terminal-box" style="background: var(--bg-surface); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-family: var(--font-mono); font-size: var(--text-xs); margin-bottom: var(--space-3);">
+              <div style="color: var(--text-muted); margin-bottom: 4px;"># 1. Download verification_manifest.json using the button above</div>
+              <div style="color: var(--text-muted); margin-bottom: 4px;"># 2. Run the stdlib-only verification kit against Binance Vision source archives:</div>
+              <div style="color: var(--text-primary); font-weight: bold;">python verification/verify_release.py --manifest verification_manifest_${meta.release_id}.json</div>
+            </div>
+            <p style="font-size: var(--text-xs); color: var(--text-muted); margin: 0;">
+              For full verification documentation, trust boundaries, and conventions, inspect <a href="https://github.com/venkat-narasimha/btc-hourly-analytics/tree/master/verification" target="_blank" rel="noopener" style="color: var(--color-primary); text-decoration: underline;">verification/README.md</a>.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   `;
+
+  // Wire export manifest action
+  const exportHandler = async (btn: HTMLButtonElement) => {
+    btn.disabled = true;
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<span>Exporting...</span>';
+    try {
+      const { generateManifest, downloadManifest } = await import('../verify/manifest');
+      const manifest = await generateManifest(data || [], meta, report);
+      downloadManifest(manifest, `verification_manifest_${meta.release_id}.json`);
+    } catch (err: any) {
+      alert(`Manifest export failed: ${err.message || String(err)}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  };
+
+  if (typeof container.querySelector === 'function') {
+    const btnHeader = container.querySelector<HTMLButtonElement>('#btn-export-manifest');
+    const btnCard = container.querySelector<HTMLButtonElement>('#btn-export-manifest-card');
+
+    if (btnHeader) {
+      btnHeader.addEventListener('click', () => exportHandler(btnHeader));
+    }
+    if (btnCard) {
+      btnCard.addEventListener('click', () => exportHandler(btnCard));
+    }
+  }
 }

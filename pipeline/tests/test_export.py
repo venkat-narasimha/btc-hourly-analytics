@@ -67,14 +67,17 @@ class TestDfToParquet:
 class TestWriteMeta:
     def test_meta_content(self, output_df, tmp_path):
         path = tmp_path / "meta.json"
-        stats = {"monthly_files": 10, "daily_files": 5}
-        write_meta(output_df, "test_release", stats, path)
+        source_files = [{"url": "http://fake/m1.zip", "sha256": "abcdef", "kind": "monthly"}]
+        stats = {"monthly_files": 10, "daily_files": 5, "source_files": source_files}
+        write_meta(output_df, "test_release", stats, path, artifact_sha256="test_hash_123")
         assert path.exists()
         data = json.loads(path.read_text())
         assert data["schema_version"] == "1.0"
         assert data["symbol"] == "BTCUSDT"
         assert data["rows"] == 2
         assert data["release_id"] == "test_release"
+        assert data["artifact_sha256"] == "test_hash_123"
+        assert data["source_files"] == source_files
         assert data["files_downloaded"]["monthly"] == 10
         assert "freshness_hours" in data
         assert isinstance(data["freshness_hours"], (int, float))
@@ -198,3 +201,9 @@ class TestExport:
         # Check current link/dir exists
         current = tmp_path / "current"
         assert current.exists()
+
+        # Check artifact_sha256 in meta matches actual parquet file
+        meta_data = json.loads((release_dir / "meta.json").read_text())
+        import hashlib
+        expected_sha = hashlib.sha256((release_dir / "btcusdt_1h.parquet").read_bytes()).hexdigest()
+        assert meta_data["artifact_sha256"] == expected_sha
