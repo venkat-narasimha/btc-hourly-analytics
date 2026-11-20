@@ -89,7 +89,7 @@ export function createSeasonalityView(
               ${renderInfoTooltip({
                 title: 'Diurnal Return Seasonality (00:00–23:00 UTC)',
                 description: 'Aggregated metric for each individual hour of the day across all historical observations.',
-                formula: '\\bar{r}_h = \\frac{1}{N_h} \\sum_{t \\in h} r_t',
+                formula: 'Mean_h = (1 / N_h) × Σ(r_t for hour h)',
                 caveat: 'Diurnal patterns are descriptive and have low explanatory power on any single future trading day.',
                 position: 'bottom',
               })}
@@ -104,7 +104,7 @@ export function createSeasonalityView(
               ${renderInfoTooltip({
                 title: 'Day-of-Week Seasonality (Mon–Sun UTC)',
                 description: 'Aggregated metric for each calendar day of the week to detect weekend liquidity drain vs weekday patterns.',
-                formula: '\\bar{r}_d = \\frac{1}{N_d} \\sum_{t \\in d} r_t',
+                formula: 'Mean_d = (1 / N_d) × Σ(r_t for day d)',
                 position: 'bottom',
               })}
             </h3>

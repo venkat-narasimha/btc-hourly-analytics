@@ -55,7 +55,7 @@ export function renderQualityReport(
             ${renderInfoTooltip({
               title: 'Ingestion Coverage Ratio',
               description: 'Percentage of expected calendar hours present with valid verified OHLCV bars.',
-              formula: '\\text{Coverage} = \\frac{N_{\\text{actual}}}{N_{\\text{expected}}} \\times 100\\%',
+              formula: 'Coverage = (Actual Bars / Expected Hours) × 100%',
               caveat: 'Missing bars strictly correspond to documented Binance exchange downtime.',
               position: 'bottom',
             })}
@@ -70,7 +70,7 @@ export function renderQualityReport(
             ${renderInfoTooltip({
               title: 'Cryptographic Checksum Audit',
               description: 'Every monthly and daily ZIP archive downloaded from Binance Vision is validated against official SHA-256 hashes.',
-              formula: '\\text{SHA-256}(\\text{archive}) \\equiv \\text{hash}_{\\.CHECKSUM}',
+              formula: 'SHA-256(archive) == Verified Hash',
               position: 'bottom',
             })}
           </span>
@@ -84,7 +84,7 @@ export function renderQualityReport(
             ${renderInfoTooltip({
               title: 'Timestamp Deduplication',
               description: 'Identical open_time timestamps resolved deterministically by preferring monthly finalized over daily archive slices.',
-              formula: '\\text{Unique}(t_{\\text{open}})',
+              formula: 'Unique(open_time_ms)',
               position: 'bottom',
             })}
           </span>
@@ -98,6 +98,7 @@ export function renderQualityReport(
             ${renderInfoTooltip({
               title: 'Zero Volume Integrity Check',
               description: 'Candles with 0.0 traded volume. Kept intact because price continuity remains unbroken.',
+              formula: 'Volume == 0.0 (Price Continuity Preserved)',
               caveat: 'Zero-volume bars typically occur during matching engine freezes or test intervals.',
               position: 'bottom',
             })}
@@ -163,7 +164,7 @@ export function renderQualityReport(
                 ${renderInfoTooltip({
                   title: 'Annual Calendar Completeness',
                   description: 'Validation against standard leap and non-leap annual calendar hours.',
-                  formula: 'H = 8{,}760\\text{ (std)} \\quad / \\quad 8{,}784\\text{ (leap)}',
+                  formula: 'Hours = 8,760h (standard)  /  8,784h (leap)',
                   position: 'bottom',
                 })}
               </div>
@@ -265,7 +266,7 @@ export function renderQualityReport(
               ${renderInfoTooltip({
                 title: 'Release Artifact Audit Stamp',
                 description: 'Verifies the cryptographic commit SHA, build timestamp, and static Parquet artifact release.',
-                formula: '\\text{Pipeline Git Commit} = ' + meta.pipeline_git_sha.substring(0, 8),
+                formula: 'Git Commit SHA = ' + meta.pipeline_git_sha.substring(0, 8),
                 caveat: 'Static web hosting guarantees that data is deterministic and reproducible without backend dependencies.',
                 position: 'top',
               })}

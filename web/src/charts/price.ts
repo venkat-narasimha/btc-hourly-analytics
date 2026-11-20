@@ -56,7 +56,7 @@ export function createPriceChart(
         ${renderInfoTooltip({
           title: 'Logarithmic Price Scaling',
           description: 'Renders equal percentage changes as equal vertical intervals regardless of absolute dollar price level.',
-          formula: 'y = \\ln(P_t)',
+          formula: 'y = ln(Price_t)',
           caveat: 'Essential for evaluating Bitcoin across multi-year cycle orders of magnitude without distorting early history.',
           position: 'bottom',
         })}
@@ -67,7 +67,7 @@ export function createPriceChart(
           ${renderInfoTooltip({
             title: 'Timezone Timestamp Offset',
             description: 'Switches axis visualization between Universal Coordinated Time (UTC) and Indian Standard Time (IST).',
-            formula: 't_{\\text{IST}} = t_{\\text{UTC}} + 19{,}800\\text{ s}',
+            formula: 't_IST = t_UTC + 19,800s  (+5h 30m)',
             caveat: 'Parquet database records remain permanently normalized to UTC epoch milliseconds.',
             position: 'left',
           })}

@@ -95,7 +95,7 @@ export function createOverviewPage(
             ${renderInfoTooltip({
               title: 'Dataset Observations',
               description: 'Total discrete 1-hour OHLCV candles ingested directly from Binance Vision into parquet.',
-              formula: 'N = \\sum_{y} \\text{bars}_y',
+              formula: 'N = Total Hourly Observations',
               caveat: 'Exchange downtime intervals are preserved as null returns, never forward-filled or interpolated.',
               position: 'bottom',
             })}
@@ -110,7 +110,7 @@ export function createOverviewPage(
             ${renderInfoTooltip({
               title: 'Chronological Scope',
               description: 'Continuous historical range from first recorded kline open to the latest pipeline build.',
-              formula: '\\Delta t = t_{\\text{last}} - t_{\\text{first}}',
+              formula: 'Δt = Latest Bar Date − First Bar Date',
               position: 'bottom',
             })}
           </span>
@@ -124,7 +124,7 @@ export function createOverviewPage(
             ${renderInfoTooltip({
               title: 'Hourly Data Coverage',
               description: 'Ratio of ingested hourly bars relative to theoretical calendar hours.',
-              formula: '\\text{Coverage} = \\frac{N_{\\text{actual}}}{N_{\\text{expected}}} \\times 100\\%',
+              formula: 'Coverage = (Actual Bars / Expected Hours) × 100%',
               caveat: 'Unrecorded hours correspond strictly to scheduled or emergency Binance maintenance windows.',
               position: 'bottom',
             })}
@@ -139,7 +139,7 @@ export function createOverviewPage(
             ${renderInfoTooltip({
               title: 'Latest Close & Total Return',
               description: 'Most recent hourly close price and nominal percentage change across full dataset.',
-              formula: 'R_{\\text{total}} = \\frac{P_{\\text{last}} - P_{\\text{first}}}{P_{\\text{first}}} \\times 100\\%',
+              formula: 'Total Return = ((Latest Close − Initial Open) / Initial Open) × 100%',
               position: 'bottom',
             })}
           </span>
@@ -153,7 +153,7 @@ export function createOverviewPage(
             ${renderInfoTooltip({
               title: 'Maximum Peak-to-Trough Drawdown',
               description: 'Largest percentage drop from a prior historical high-water mark close price.',
-              formula: '\\text{MDD} = \\max_{t} \\left( \\frac{\\max_{\\tau \\le t} P_\\tau - P_t}{\\max_{\\tau \\le t} P_\\tau} \\right) \\times 100\\%',
+              formula: 'MDD = max( (Peak − Close_t) / Peak ) × 100%',
               caveat: 'Computed from hourly close points; intra-hour flash wicks may have been slightly lower.',
               position: 'bottom',
             })}
@@ -174,7 +174,7 @@ export function createOverviewPage(
                 ${renderInfoTooltip({
                   title: 'Seasonality Tendencies',
                   description: 'Mean logarithmic return aggregated across UTC hours and days of the week.',
-                  formula: 'r_t = \\ln(c_t / c_{t-1}) \\times 10{,}000\\text{ bps}',
+                  formula: 'r_t = ln(Close_t / Close_t-1) × 10,000 bps',
                   caveat: 'Low R²: Diurnal tendencies are descriptive historical averages and do not represent standalone trading alpha.',
                   position: 'bottom',
                 })}
@@ -222,7 +222,7 @@ export function createOverviewPage(
                 ${renderInfoTooltip({
                   title: 'Annual Expected Observations',
                   description: 'Comparison of actual recorded hourly candles against theoretical astronomical year hours.',
-                  formula: 'H_{\\text{year}} = 24 \\times 365 \\quad (\\text{or } 24 \\times 366 \\text{ leap})',
+                  formula: 'Hours = 24 × 365 (8,760h)  [8,784h in leap years]',
                   position: 'bottom',
                 })}
               </div>
@@ -267,7 +267,7 @@ export function createOverviewPage(
               ${renderInfoTooltip({
                 title: 'Data Provenance & Pipeline Integrity',
                 description: 'End-to-end data lineage connecting client visualization to verified immutable Parquet release artifacts.',
-                formula: '\\text{SHA-256}(\\text{archive}) \\equiv \\text{Verified}',
+                formula: 'SHA-256(archive) == Verified Checksum',
                 caveat: 'DuckDB-Wasm queries run locally in-browser via HTTP byte-range requests against static Parquet files without backend servers.',
                 position: 'top',
               })}

@@ -38,7 +38,7 @@ export function createCalendarView(
             ${renderInfoTooltip({
               title: 'Monthly Return Matrix & YTD Compounding',
               description: 'Percentage price performance grouped by calendar month, with discrete geometrically compounded Year-to-Date (YTD) returns.',
-              formula: 'R_{\\text{month}} = \\frac{P_{\\text{end}} - P_{\\text{start}}}{P_{\\text{start}}} \\times 100\\%, \\quad R_{\\text{YTD}} = \\left(\\prod_{m=1}^M (1 + r_m) - 1\\right) \\times 100\\%',
+              formula: 'R_month = ((Close_end − Close_start) / Close_start) × 100%,   R_YTD = [ Π(1 + r_m) − 1 ] × 100%',
               caveat: 'Calendar months vary between 28 and 31 days (672 to 744 hourly bars). YTD uses exact discrete compounding.',
               position: 'bottom',
             })}
@@ -56,7 +56,7 @@ export function createCalendarView(
               ${renderInfoTooltip({
                 title: 'High-Water Mark Drawdown Series',
                 description: 'Measures continuous loss relative to the highest peak close price recorded up to each hourly bar.',
-                formula: '\\text{HWM}_t = \\max_{\\tau \\le t} P_\\tau, \\quad \\text{DD}_t = \\frac{P_t - \\text{HWM}_t}{\\text{HWM}_t} \\times 100\\%',
+                formula: 'HWM_t = max(Close),   Drawdown_t = ((Close_t − HWM_t) / HWM_t) × 100%',
                 caveat: 'Measured on hourly bar closes. Sub-hourly flash crashes (e.g. March 2020) were deeper on intra-candle wick lows.',
                 position: 'bottom',
               })}

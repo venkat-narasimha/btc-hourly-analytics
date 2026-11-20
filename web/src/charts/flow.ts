@@ -38,7 +38,7 @@ export function createFlowView(
               ${renderInfoTooltip({
                 title: 'Cumulative Volume Delta (CVD)',
                 description: 'Measures running net aggressive market buying vs aggressive selling in contracts/BTC.',
-                formula: '\\Delta_t = 2 \\times V_{\\text{taker\\_buy}} - V_{\\text{total}}, \\quad \\text{CVD}_T = \\sum_{t=1}^T \\Delta_t',
+                formula: 'Δ_t = (2 × Taker Buy Vol) − Total Vol,   CVD = Σ(Δ_t)',
                 caveat: 'Taker transactions only. Passive limit order liquidity providers represent the exact equal and opposite side of every executed fill.',
                 position: 'bottom',
               })}
@@ -61,7 +61,7 @@ export function createFlowView(
               ${renderInfoTooltip({
                 title: 'Hourly Taker Buy Ratio (TBR)',
                 description: 'Proportion of aggregate traded volume initiated by aggressive market buy orders across each UTC hour.',
-                formula: '\\text{TBR}_h = \\frac{\\sum_{t \\in h} V_{\\text{taker\\_buy}}}{\\sum_{t \\in h} V_{\\text{total}}}',
+                formula: 'TBR_h = Σ(Taker Buy Vol) / Σ(Total Vol)',
                 caveat: 'Values > 0.50 indicate aggressive taker buying. Spikes frequently align with perpetual funding rate settlement boundaries (00:00, 08:00, 16:00 UTC).',
                 position: 'bottom',
               })}

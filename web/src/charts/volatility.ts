@@ -41,7 +41,7 @@ export function createVolatilityView(
             ${renderInfoTooltip({
               title: 'Rolling Historical Volatility',
               description: 'Sample standard deviation of hourly log returns computed over an backward sliding window of W hours.',
-              formula: '\\sigma_t = \\sqrt{\\frac{1}{W-1}\\sum_{i=0}^{W-1}(r_{t-i} - \\bar{r})^2} \\times 10{,}000\\text{ bps}',
+              formula: 'σ_t = √[ Σ(r_i − r̄)² / (W − 1) ] × 10,000 bps',
               caveat: 'Backward-looking window creates visual lag. Sudden volatility spikes appear wider than true duration.',
               position: 'bottom',
             })}
@@ -68,7 +68,7 @@ export function createVolatilityView(
               ${renderInfoTooltip({
                 title: 'Empirical Return Distribution',
                 description: 'Histogram of discrete hourly log returns partitioned into 50 basis point intervals.',
-                formula: 'r_t = \\ln(c_t / c_{t-1}) \\times 10{,}000\\text{ bps}',
+                formula: 'r_t = ln(Close_t / Close_t-1) × 10,000 bps',
                 caveat: 'Non-Gaussian Leptokurtosis: Crypto returns feature heavy tails; standard normal assumptions drastically underestimate risk.',
                 position: 'bottom',
               })}
@@ -84,7 +84,7 @@ export function createVolatilityView(
               ${renderInfoTooltip({
                 title: 'Higher-Order Statistical Moments & Quantiles',
                 description: 'Descriptive metrics quantifying central location, dispersion, skewness, excess kurtosis, and empirical quantile loss cutoffs.',
-                formula: '\\text{Skew} = \\frac{m_3}{s^3}, \\quad \\text{Excess Kurt} = \\frac{m_4}{s^4} - 3',
+                formula: 'Skewness = m₃ / s³,   Excess Kurtosis = (m₄ / s⁴) − 3',
                 caveat: 'Kurtosis > 3 implies fat tails where extreme multi-sigma flash crashes or short squeezes happen much more frequently than normal theory predicts.',
                 position: 'left',
               })}

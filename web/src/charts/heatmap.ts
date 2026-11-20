@@ -44,7 +44,7 @@ export function createHeatmapView(
           ${renderInfoTooltip({
             title: 'Heatmap Metric Aggregation',
             description: 'Computes the specified summary statistic across all samples sharing the same (Day of Week, Hour of Day) coordinate.',
-            formula: 'M_{d,h} = f\\Big(\\{x_t \\mid \\text{day}(t) = d, \\; \\text{hour}(t) = h\\}\\Big)',
+            formula: 'Cell(d, h) = Metric({ Bars where Day=d and Hour=h })',
             position: 'bottom',
           })}
         </div>
@@ -60,7 +60,7 @@ export function createHeatmapView(
               ${renderInfoTooltip({
                 title: '7×24 Interaction Grid (168 Cells)',
                 description: 'Full bivariate cross-tabulation mapping market behavior across all 168 hours of the trading week.',
-                formula: 'n \\approx 350\\text{--}360\\text{ observations per cell}',
+                formula: 'n ≈ 350 to 360 observations per cell',
                 caveat: 'Multiple Testing Hazard: Testing 168 cells simultaneously will yield seemingly significant statistical anomalies purely by chance without false discovery rate adjustments.',
                 position: 'bottom',
               })}
