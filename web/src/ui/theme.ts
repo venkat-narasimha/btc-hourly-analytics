@@ -13,7 +13,7 @@ export function getInitialTheme(): Theme {
   } catch {
     // ignore
   }
-  return 'light'; // Default theme is light
+  return 'dark'; // Default theme is dark
 }
 
 export function saveTheme(theme: Theme): void {
@@ -46,30 +46,30 @@ export function getChartTheme(theme: Theme): ChartThemeColors {
       background: '#ffffff',
       panelBackground: '#ffffff',
       textColor: '#0f172a',
-      textSecondary: '#64748b',
-      gridLineColor: '#f1f5f9',
-      borderColor: '#e2e8f0',
-      tooltipBg: 'rgba(255, 255, 255, 0.95)',
-      tooltipBorder: '#cbd5e1',
+      textSecondary: '#475569',
+      gridLineColor: 'rgba(0,0,0,0.04)',
+      borderColor: 'rgba(0,0,0,0.07)',
+      tooltipBg: 'rgba(255,255,255,0.97)',
+      tooltipBorder: 'rgba(0,0,0,0.12)',
       tooltipText: '#0f172a',
-      candleUp: '#10b981',
-      candleDown: '#ef4444',
-      volumeBar: '#3b82f6',
+      candleUp: '#059669',
+      candleDown: '#dc2626',
+      volumeBar: '#4f46e5',
     };
   }
 
   return {
-    background: '#090d16',
-    panelBackground: '#0f172a',
-    textColor: '#f8fafc',
+    background: '#0f1623',
+    panelBackground: '#0f1623',
+    textColor: '#f1f5f9',
     textSecondary: '#94a3b8',
-    gridLineColor: '#1e293b',
-    borderColor: '#334155',
-    tooltipBg: 'rgba(15, 23, 42, 0.92)',
-    tooltipBorder: '#334155',
-    tooltipText: '#f8fafc',
+    gridLineColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.06)',
+    tooltipBg: 'rgba(13,17,23,0.96)',
+    tooltipBorder: 'rgba(255,255,255,0.12)',
+    tooltipText: '#f1f5f9',
     candleUp: '#10b981',
     candleDown: '#ef4444',
-    volumeBar: '#60a5fa',
+    volumeBar: '#6366f1',
   };
 }

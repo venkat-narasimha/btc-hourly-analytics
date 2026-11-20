@@ -46,18 +46,18 @@ export function createPriceChart(
 
   // Chart container layout
   container.innerHTML = `
-    <div class="price-chart-wrapper" style="position: relative; width: 100%; height: 100%;">
-      <div class="price-chart-toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
-        <label class="toggle-control" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer;">
+    <div class="page-wrapper tab-enter price-chart-wrapper" style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;">
+      <div class="chart-card-header price-chart-toolbar" style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border);">
+        <label class="toggle-control" style="font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px;">
           <input type="checkbox" id="log-scale-checkbox" ${isLogScale ? 'checked' : ''} />
           <span>Log Scale</span>
         </label>
-        <span class="timezone-indicator" style="font-size: 12px; color: var(--text-muted); margin-left: auto;">
+        <span class="timezone-indicator" style="font-size: var(--text-xs); color: var(--color-info); margin-left: auto;">
           Time axis: <strong id="tz-axis-label" style="color: var(--text-primary);">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
         </span>
       </div>
-      <div class="price-chart-container" style="width: 100%; height: calc(100% - 36px); position: relative;"></div>
-      <div class="price-chart-tooltip" style="position: absolute; top: 44px; left: 16px; z-index: 10; pointer-events: none; font-size: 12px; padding: 6px 10px; border-radius: 4px; font-family: monospace; display: none;"></div>
+      <div class="price-chart-container" style="width: 100%; height: calc(100% - 44px); position: relative; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--chart-bg);"></div>
+      <div class="price-chart-tooltip" style="position: absolute; top: 48px; left: 16px; z-index: 10; pointer-events: none; font-size: var(--text-xs); padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--font-mono, monospace); display: none;"></div>
     </div>
   `;
 
@@ -236,6 +236,18 @@ export function createPriceChart(
       timeScale: {
         borderColor: colors.borderColor,
       },
+    });
+
+    candleSeries.applyOptions({
+      upColor: colors.candleUp,
+      downColor: colors.candleDown,
+      borderUpColor: colors.candleUp,
+      borderDownColor: colors.candleDown,
+      wickUpColor: colors.candleUp,
+      wickDownColor: colors.candleDown,
+    });
+    volumeSeries.applyOptions({
+      color: colors.volumeBar,
     });
   }
 

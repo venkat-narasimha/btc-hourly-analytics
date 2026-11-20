@@ -28,29 +28,27 @@ export function createCalendarView(
   let currentTheme: Theme = initialTheme;
 
   container.innerHTML = `
-    <div class="calendar-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+    <div class="page-wrapper tab-enter calendar-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
       <!-- Monthly Returns Grid -->
-      <div class="chart-panel" style="padding: 14px;">
-        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">
-          Monthly Return Matrix (Year × Month)
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3 class="chart-card-title" style="margin: 0;">Monthly Return Matrix (Year × Month)</h3>
         </div>
-        <div id="monthly-matrix-container" style="overflow-x: auto;"></div>
+        <div id="monthly-matrix-container" class="chart-card-body" style="overflow-x: auto;"></div>
       </div>
 
       <!-- Drawdown Chart -->
-      <div class="chart-panel" style="padding: 14px; flex: 1; display: flex; flex-direction: column; min-height: 260px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
+        <div class="chart-card-header">
           <div>
-            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
-              Historical Underwater / Drawdown Chart
-            </div>
-            <div style="font-size: 12px; color: var(--text-muted);">
+            <h3 class="chart-card-title" style="margin: 0;">Historical Underwater / Drawdown Chart</h3>
+            <div class="chart-card-subtitle text-muted">
               Calculated from high-water mark close prices
             </div>
           </div>
-          <div id="max-dd-stat" style="font-size: 13px; font-weight: 600; color: var(--color-red); font-family: monospace;"></div>
+          <div id="max-dd-stat" class="text-negative font-tabular" style="font-size: var(--text-sm); font-weight: 600; color: var(--color-negative); font-family: var(--font-mono, monospace);"></div>
         </div>
-        <div id="drawdown-chart" style="flex: 1; width: 100%; min-height: 200px;"></div>
+        <div id="drawdown-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 200px;"></div>
       </div>
     </div>
   `;
@@ -76,12 +74,12 @@ export function createCalendarView(
     }
 
     let html = `
-      <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; font-family: monospace;">
+      <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; font-family: var(--font-mono, monospace);">
         <thead>
-          <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
+          <tr style="border-bottom: 1px solid var(--border); color: var(--text-secondary);">
             <th style="padding: 8px 6px; text-align: left;">Year</th>
             ${MONTH_NAMES.map(m => `<th style="padding: 8px 6px;">${m}</th>`).join('')}
-            <th style="padding: 8px 6px; border-left: 1px solid var(--border-color); color: var(--text-primary);">YTD</th>
+            <th style="padding: 8px 6px; border-left: 1px solid var(--border); color: var(--text-primary);">YTD</th>
           </tr>
         </thead>
         <tbody>
@@ -91,7 +89,7 @@ export function createCalendarView(
       let ytdProduct = 1;
       let hasData = false;
 
-      let rowHtml = `<tr style="border-bottom: 1px solid var(--border-color);">
+      let rowHtml = `<tr style="border-bottom: 1px solid var(--border);">
         <td style="padding: 6px; text-align: left; font-weight: 600; color: var(--text-primary);">${y}</td>`;
 
       for (let m = 0; m < 12; m++) {
@@ -112,8 +110,8 @@ export function createCalendarView(
 
       const ytdPct = hasData ? (ytdProduct - 1) * 100 : 0;
       const ytdBg = ytdPct >= 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-      const ytdColor = ytdPct >= 0 ? 'var(--color-green)' : 'var(--color-red)';
-      rowHtml += `<td style="padding: 6px; font-weight: 700; border-left: 1px solid var(--border-color); background: ${ytdBg}; color: ${ytdColor};">${hasData ? `${ytdPct >= 0 ? '+' : ''}${ytdPct.toFixed(1)}%` : '—'}</td></tr>`;
+      const ytdColor = ytdPct >= 0 ? 'var(--color-positive)' : 'var(--color-negative)';
+      rowHtml += `<td style="padding: 6px; font-weight: 700; border-left: 1px solid var(--border); background: ${ytdBg}; color: ${ytdColor};">${hasData ? `${ytdPct >= 0 ? '+' : ''}${ytdPct.toFixed(1)}%` : '—'}</td></tr>`;
       html += rowHtml;
     }
 
@@ -143,7 +141,7 @@ export function createCalendarView(
             <div>${times[idx]}</div>
             <div>Close: <strong>$${p.close.toLocaleString()}</strong></div>
             <div>High-Water Peak: <strong>$${p.peak.toLocaleString()}</strong></div>
-            <div>Drawdown: <strong style="color: var(--color-red);">${p.drawdownPct.toFixed(2)}%</strong></div>
+            <div>Drawdown: <strong style="color: var(--color-negative);">${p.drawdownPct.toFixed(2)}%</strong></div>
           `;
         },
       },

@@ -31,35 +31,33 @@ export function createVolatilityView(
   let currentTheme: Theme = initialTheme;
 
   container.innerHTML = `
-    <div class="volatility-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+    <div class="page-wrapper tab-enter volatility-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
       <!-- Rolling Volatility Section -->
-      <div class="chart-panel" style="padding: 14px; display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
-            Rolling Volatility (σ of Hourly Log Returns)
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary);">
-            <span>Window: <strong id="window-val-label" style="color: var(--color-blue);">168h (7d)</strong></span>
-            <input type="range" id="vol-window-slider" min="24" max="720" step="24" value="168" style="cursor: pointer; width: 140px;" />
+      <div class="chart-card" style="display: flex; flex-direction: column;">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 class="chart-card-title" style="margin: 0;">Rolling Volatility (σ of Hourly Log Returns)</h3>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: var(--text-secondary);">
+            <span>Window: <strong id="window-val-label" class="text-info" style="color: var(--color-info);">168h (7d)</strong></span>
+            <input type="range" id="vol-window-slider" min="24" max="720" step="24" value="168" style="cursor: pointer; width: 140px; accent-color: var(--accent);" />
           </div>
         </div>
-        <div id="rolling-vol-chart" style="width: 100%; height: 260px;"></div>
+        <div id="rolling-vol-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px;"></div>
       </div>
 
       <!-- Return Distribution Section -->
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; flex: 1; min-height: 280px;">
-        <div class="chart-panel" style="padding: 14px; display: flex; flex-direction: column;">
-          <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-            Return Distribution (Hourly Log Returns in Basis Points)
+        <div class="chart-card" style="display: flex; flex-direction: column;">
+          <div class="chart-card-header">
+            <h3 class="chart-card-title" style="margin: 0;">Return Distribution (Hourly Log Returns in Basis Points)</h3>
           </div>
-          <div id="dist-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
+          <div id="dist-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 220px;"></div>
         </div>
 
-        <div class="chart-panel" style="padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
-          <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-            Distribution Moments & Risk
+        <div class="chart-card" style="display: flex; flex-direction: column;">
+          <div class="chart-card-header">
+            <h3 class="chart-card-title" style="margin: 0;">Distribution Moments & Risk</h3>
           </div>
-          <div id="dist-stats-panel" style="font-size: 13px; display: flex; flex-direction: column; gap: 8px;">
+          <div id="dist-stats-panel" class="chart-card-body" style="font-size: var(--text-sm); display: flex; flex-direction: column; gap: 4px; overflow-y: auto;">
             <!-- Filled dynamically -->
           </div>
         </div>
@@ -181,32 +179,32 @@ export function createVolatilityView(
     }, true);
 
     statsPanelEl.innerHTML = `
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0;">
+      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
         <span style="color: var(--text-secondary);">Mean Return</span>
-        <strong style="color: var(--text-primary); font-family: monospace;">${stats.meanBps.toFixed(2)} bps</strong>
+        <strong style="color: var(--text-primary); font-family: var(--font-mono, monospace);">${stats.meanBps.toFixed(2)} bps</strong>
       </div>
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0;">
+      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
         <span style="color: var(--text-secondary);">Std Dev (σ)</span>
-        <strong style="color: var(--text-primary); font-family: monospace;">${stats.stdBps.toFixed(2)} bps</strong>
+        <strong style="color: var(--text-primary); font-family: var(--font-mono, monospace);">${stats.stdBps.toFixed(2)} bps</strong>
       </div>
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0;">
+      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
         <span style="color: var(--text-secondary);">Skewness</span>
-        <strong style="color: ${stats.skewness >= 0 ? 'var(--color-green)' : 'var(--color-amber)'}; font-family: monospace;">${stats.skewness.toFixed(3)}</strong>
+        <strong style="color: ${stats.skewness >= 0 ? 'var(--color-positive)' : 'var(--color-warning)'}; font-family: var(--font-mono, monospace);">${stats.skewness.toFixed(3)}</strong>
       </div>
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0;">
+      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
         <span style="color: var(--text-secondary);">Excess Kurtosis</span>
-        <strong style="color: var(--color-blue); font-family: monospace;">${stats.kurtosis.toFixed(2)} (Fat tails)</strong>
+        <strong style="color: var(--color-info); font-family: var(--font-mono, monospace);">${stats.kurtosis.toFixed(2)} (Fat tails)</strong>
       </div>
-      <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Quantiles (bps)</div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px;">
-        <div style="display: flex; justify-content: space-between;"><span>p1:</span> <strong style="color:var(--color-red)">${stats.quantiles.p1.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p99:</span> <strong style="color:var(--color-green)">${stats.quantiles.p99.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p5:</span> <strong style="color:var(--color-red)">${stats.quantiles.p5.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p95:</span> <strong style="color:var(--color-green)">${stats.quantiles.p95.toFixed(1)}</strong></div>
+      <div style="margin-top: 8px; font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Quantiles (bps)</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: var(--text-xs);">
+        <div style="display: flex; justify-content: space-between;"><span>p1:</span> <strong style="color:var(--color-negative)">${stats.quantiles.p1.toFixed(1)}</strong></div>
+        <div style="display: flex; justify-content: space-between;"><span>p99:</span> <strong style="color:var(--color-positive)">${stats.quantiles.p99.toFixed(1)}</strong></div>
+        <div style="display: flex; justify-content: space-between;"><span>p5:</span> <strong style="color:var(--color-negative)">${stats.quantiles.p5.toFixed(1)}</strong></div>
+        <div style="display: flex; justify-content: space-between;"><span>p95:</span> <strong style="color:var(--color-positive)">${stats.quantiles.p95.toFixed(1)}</strong></div>
         <div style="display: flex; justify-content: space-between;"><span>p25:</span> <strong>${stats.quantiles.p25.toFixed(1)}</strong></div>
         <div style="display: flex; justify-content: space-between;"><span>p75:</span> <strong>${stats.quantiles.p75.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between; grid-column: span 2; border-top: 1px solid var(--border-color); padding-top: 4px;">
-          <span>Median (p50):</span> <strong style="color: var(--color-blue)">${stats.quantiles.p50.toFixed(1)} bps</strong>
+        <div style="display: flex; justify-content: space-between; grid-column: span 2; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
+          <span>Median (p50):</span> <strong style="color: var(--color-info)">${stats.quantiles.p50.toFixed(1)} bps</strong>
         </div>
       </div>
     `;

@@ -27,36 +27,32 @@ export function createFlowView(
   let currentTheme: Theme = initialTheme;
 
   container.innerHTML = `
-    <div class="flow-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+    <div class="page-wrapper tab-enter flow-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
       <!-- Cumulative Taker Delta Line -->
-      <div class="chart-panel" style="padding: 14px; flex: 1; display: flex; flex-direction: column; min-height: 260px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
+        <div class="chart-card-header">
           <div>
-            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
-              Cumulative Taker Delta (Net Aggressive Order Flow)
-            </div>
-            <div style="font-size: 12px; color: var(--text-muted);">
+            <h3 class="chart-card-title" style="margin: 0;">Cumulative Taker Delta (Net Aggressive Order Flow)</h3>
+            <div class="chart-card-subtitle text-muted">
               Formula: Σ(2 · taker_buy_volume − volume) in BTC
             </div>
           </div>
-          <div id="net-delta-stat" style="font-size: 13px; font-weight: 600; font-family: monospace;"></div>
+          <div id="net-delta-stat" class="font-tabular" style="font-size: var(--text-sm); font-weight: 600; font-family: var(--font-mono, monospace);"></div>
         </div>
-        <div id="cum-delta-chart" style="flex: 1; width: 100%; min-height: 200px;"></div>
+        <div id="cum-delta-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 200px;"></div>
       </div>
 
       <!-- Hourly Taker Buy Ratio Bar -->
-      <div class="chart-panel" style="padding: 14px; flex: 1; display: flex; flex-direction: column; min-height: 240px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 240px;">
+        <div class="chart-card-header">
           <div>
-            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
-              Hourly Taker Buy Ratio by Hour of Day (UTC)
-            </div>
-            <div style="font-size: 12px; color: var(--text-muted);">
-              Ratio-of-sums: Σtaker_buy_volume / Σvolume (>0.50 indicates net aggressive buying)
+            <h3 class="chart-card-title" style="margin: 0;">Hourly Taker Buy Ratio by Hour of Day (UTC)</h3>
+            <div class="chart-card-subtitle text-muted">
+              Ratio-of-sums: Σtaker_buy_volume / Σvolume (&gt;0.50 indicates net aggressive buying)
             </div>
           </div>
         </div>
-        <div id="hourly-flow-chart" style="flex: 1; width: 100%; min-height: 190px;"></div>
+        <div id="hourly-flow-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 190px;"></div>
       </div>
     </div>
   `;
@@ -79,7 +75,7 @@ export function createFlowView(
     if (deltaPoints.length > 0) {
       const last = deltaPoints[deltaPoints.length - 1].cumDelta;
       netDeltaLabel.textContent = `Net: ${last >= 0 ? '+' : ''}${last.toLocaleString(undefined, { maximumFractionDigits: 0 })} BTC`;
-      netDeltaLabel.style.color = last >= 0 ? 'var(--color-green)' : 'var(--color-red)';
+      netDeltaLabel.style.color = last >= 0 ? 'var(--color-positive)' : 'var(--color-negative)';
     }
 
     const lineColor = currentTheme === 'light' ? '#2563eb' : '#38bdf8';

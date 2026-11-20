@@ -40,11 +40,11 @@ export function createSeasonalityView(
   let showSessions = false;
 
   container.innerHTML = `
-    <div class="seasonality-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
-      <div class="seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
+    <div class="page-wrapper tab-enter seasonality-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
+      <div class="filterbar seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
         <div style="display: flex; gap: 12px; align-items: center;">
-          <label style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Metric:</label>
-          <select id="seasonality-metric-select" style="padding: 6px 10px; font-size: 13px; cursor: pointer;">
+          <label style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
+          <select id="seasonality-metric-select" class="styled-select" style="padding: 6px 10px; font-size: var(--text-sm); cursor: pointer;">
             <option value="mean_return">Mean Return (bps)</option>
             <option value="volatility">Volatility (σ, bps)</option>
             <option value="win_rate">Win Rate (%)</option>
@@ -53,25 +53,29 @@ export function createSeasonalityView(
             <option value="mean_hl_range">Mean H-L Range (bps)</option>
           </select>
 
-          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer; margin-left: 12px;">
+          <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; margin-left: 12px;">
             <input type="checkbox" id="session-overlay-toggle" />
             <span>Trading Sessions Overlay</span>
           </label>
         </div>
 
-        <div style="font-size: 12px; color: var(--text-muted); font-style: italic;">
+        <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
           UTC buckets · returns, not prices · descriptive, not predictive.
-        </div>
+        </span>
       </div>
 
-      <div class="seasonality-charts-grid" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 16px; flex: 1; min-height: 500px;">
-        <div class="chart-panel" style="padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Hour of Day (UTC)</div>
-          <div id="hour-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
+      <div class="seasonality-charts-grid" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 16px; flex: 1; min-height: 0;">
+        <div class="chart-card" style="display: flex; flex-direction: column; min-height: 0;">
+          <div class="chart-card-header">
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Hour of Day (UTC)</h3>
+          </div>
+          <div id="hour-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 0;"></div>
         </div>
-        <div class="chart-panel" style="padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Day of Week (UTC)</div>
-          <div id="dow-chart" style="flex: 1; width: 100%; min-height: 220px;"></div>
+        <div class="chart-card" style="display: flex; flex-direction: column; min-height: 0;">
+          <div class="chart-card-header">
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Day of Week (UTC)</h3>
+          </div>
+          <div id="dow-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 0;"></div>
         </div>
       </div>
     </div>

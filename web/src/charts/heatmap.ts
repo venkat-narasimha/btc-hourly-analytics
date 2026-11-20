@@ -28,11 +28,11 @@ export function createHeatmapView(
   let currentTheme: Theme = initialTheme;
 
   container.innerHTML = `
-    <div class="heatmap-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <label style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Metric:</label>
-          <select id="heatmap-metric-select" style="padding: 6px 10px; font-size: 13px; cursor: pointer;">
+    <div class="page-wrapper tab-enter heatmap-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
+      <div class="filterbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div class="filterbar-group" style="display: flex; gap: 12px; align-items: center;">
+          <label class="filterbar-label" style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
+          <select id="heatmap-metric-select" class="styled-select" style="padding: 6px 10px; font-size: var(--text-sm); cursor: pointer;">
             <option value="mean_return">Mean Return (bps)</option>
             <option value="volatility">Volatility (σ, bps)</option>
             <option value="win_rate">Win Rate (%)</option>
@@ -41,12 +41,16 @@ export function createHeatmapView(
             <option value="mean_hl_range">Mean H-L Range (bps)</option>
           </select>
         </div>
-        <div style="font-size: 12px; color: var(--text-muted); font-style: italic;">
+        <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
           ~350–360 observations per cell · beware multiple testing & noise · returns in UTC
-        </div>
+        </span>
       </div>
-      <div class="chart-panel" style="padding: 12px; flex: 1; min-height: 480px; display: flex; flex-direction: column;">
-        <div id="heatmap-chart" style="width: 100%; flex: 1; min-height: 460px;"></div>
+      <div class="chart-card" style="flex: 1; min-height: 480px; display: flex; flex-direction: column;">
+        <div class="chart-card-header">
+          <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Hourly Seasonality Heatmap</h3>
+          <span class="chart-card-subtitle" style="font-size: var(--text-xs); color: var(--text-muted);">Day of Week × Hour of Day (UTC)</span>
+        </div>
+        <div id="heatmap-chart" class="chart-card-body no-padding" style="width: 100%; flex: 1; min-height: 440px;"></div>
       </div>
     </div>
   `;
