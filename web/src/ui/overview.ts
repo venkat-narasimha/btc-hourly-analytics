@@ -7,6 +7,7 @@
 import type { KlineRow, Meta, QualityReport } from '../types';
 import { computeSeasonality, DOW_LABELS } from '../stats/aggregations';
 import { computeDrawdownSeries } from '../stats/analytics';
+import { renderInfoTooltip } from './tooltip';
 
 export function createOverviewPage(
   container: HTMLElement,
@@ -89,31 +90,74 @@ export function createOverviewPage(
       <!-- KPI Grid: 5 Macro Cards -->
       <div class="kpi-grid">
         <div class="kpi-card">
-          <span class="kpi-label">Dataset Bars</span>
+          <span class="kpi-label">
+            <span>Dataset Bars</span>
+            ${renderInfoTooltip({
+              title: 'Dataset Observations',
+              description: 'Total discrete 1-hour OHLCV candles ingested directly from Binance Vision into parquet.',
+              formula: 'N = \\sum_{y} \\text{bars}_y',
+              caveat: 'Exchange downtime intervals are preserved as null returns, never forward-filled or interpolated.',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value">${totalBars.toLocaleString('en-US')}</div>
           <span class="kpi-sub">Hourly observations loaded</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Date Range</span>
+          <span class="kpi-label">
+            <span>Date Range</span>
+            ${renderInfoTooltip({
+              title: 'Chronological Scope',
+              description: 'Continuous historical range from first recorded kline open to the latest pipeline build.',
+              formula: '\\Delta t = t_{\\text{last}} - t_{\\text{first}}',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value" style="font-size: var(--text-lg);">${dateRangeStr}</div>
           <span class="kpi-sub">${((data[data.length - 1].open_time_ms - data[0].open_time_ms) / (86400000 * 365.25)).toFixed(1)} years span</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Data Coverage</span>
+          <span class="kpi-label">
+            <span>Data Coverage</span>
+            ${renderInfoTooltip({
+              title: 'Hourly Data Coverage',
+              description: 'Ratio of ingested hourly bars relative to theoretical calendar hours.',
+              formula: '\\text{Coverage} = \\frac{N_{\\text{actual}}}{N_{\\text{expected}}} \\times 100\\%',
+              caveat: 'Unrecorded hours correspond strictly to scheduled or emergency Binance maintenance windows.',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value ${covClass}">${coveragePct.toFixed(2)}%</div>
           <span class="kpi-sub">${qualityData?.expected_hours ? (qualityData.actual_rows.toLocaleString() + ' / ' + qualityData.expected_hours.toLocaleString() + ' expected') : 'Zero synthetic data'}</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Latest Close</span>
+          <span class="kpi-label">
+            <span>Latest Close</span>
+            ${renderInfoTooltip({
+              title: 'Latest Close & Total Return',
+              description: 'Most recent hourly close price and nominal percentage change across full dataset.',
+              formula: 'R_{\\text{total}} = \\frac{P_{\\text{last}} - P_{\\text{first}}}{P_{\\text{first}}} \\times 100\\%',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value ${priceClass}">$${latestPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
           <span class="kpi-sub ${priceClass}">${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}% full period</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Max Drawdown</span>
+          <span class="kpi-label">
+            <span>Max Drawdown</span>
+            ${renderInfoTooltip({
+              title: 'Maximum Peak-to-Trough Drawdown',
+              description: 'Largest percentage drop from a prior historical high-water mark close price.',
+              formula: '\\text{MDD} = \\max_{t} \\left( \\frac{\\max_{\\tau \\le t} P_\\tau - P_t}{\\max_{\\tau \\le t} P_\\tau} \\right) \\times 100\\%',
+              caveat: 'Computed from hourly close points; intra-hour flash wicks may have been slightly lower.',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value negative">${maxDrawdownPct.toFixed(2)}%</div>
           <span class="kpi-sub">Peak-to-trough all-time</span>
         </div>
@@ -125,7 +169,16 @@ export function createOverviewPage(
         <div class="chart-card bento-col-6">
           <div class="chart-card-header">
             <div>
-              <div class="chart-card-title">Seasonality Tendencies (UTC)</div>
+              <div class="chart-card-title">
+                Seasonality Tendencies (UTC)
+                ${renderInfoTooltip({
+                  title: 'Seasonality Tendencies',
+                  description: 'Mean logarithmic return aggregated across UTC hours and days of the week.',
+                  formula: 'r_t = \\ln(c_t / c_{t-1}) \\times 10{,}000\\text{ bps}',
+                  caveat: 'Low R²: Diurnal tendencies are descriptive historical averages and do not represent standalone trading alpha.',
+                  position: 'bottom',
+                })}
+              </div>
               <div class="chart-card-subtitle">Aggregated log returns · descriptive, not predictive</div>
             </div>
             <span class="badge badge-warning">Caveat: Low R²</span>
@@ -164,7 +217,15 @@ export function createOverviewPage(
         <div class="chart-card bento-col-6">
           <div class="chart-card-header">
             <div>
-              <div class="chart-card-title">Annual Observation Counts</div>
+              <div class="chart-card-title">
+                Annual Observation Counts
+                ${renderInfoTooltip({
+                  title: 'Annual Expected Observations',
+                  description: 'Comparison of actual recorded hourly candles against theoretical astronomical year hours.',
+                  formula: 'H_{\\text{year}} = 24 \\times 365 \\quad (\\text{or } 24 \\times 366 \\text{ leap})',
+                  position: 'bottom',
+                })}
+              </div>
               <div class="chart-card-subtitle">Expected 8,760h per normal year, 8,784h leap year</div>
             </div>
             <span class="badge badge-positive">Integrity Verified</span>
@@ -201,7 +262,16 @@ export function createOverviewPage(
       <div class="chart-card">
         <div class="chart-card-header">
           <div>
-            <div class="chart-card-title">Dataset Provenance & Statistical Methodology</div>
+            <div class="chart-card-title">
+              Dataset Provenance & Statistical Methodology
+              ${renderInfoTooltip({
+                title: 'Data Provenance & Pipeline Integrity',
+                description: 'End-to-end data lineage connecting client visualization to verified immutable Parquet release artifacts.',
+                formula: '\\text{SHA-256}(\\text{archive}) \\equiv \\text{Verified}',
+                caveat: 'DuckDB-Wasm queries run locally in-browser via HTTP byte-range requests against static Parquet files without backend servers.',
+                position: 'top',
+              })}
+            </div>
             <div class="chart-card-subtitle">Fully reproducible server-side ETL pipeline with zero client-side exchange requests</div>
           </div>
         </div>

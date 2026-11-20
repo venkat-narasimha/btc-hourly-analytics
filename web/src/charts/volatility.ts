@@ -14,6 +14,7 @@ import {
   computeRollingVolatility,
 } from '../stats/analytics';
 import { getChartTheme } from '../ui/theme';
+import { renderInfoTooltip } from '../ui/tooltip';
 
 export interface VolatilityViewInstance {
   updateData(data: KlineRow[]): void;
@@ -35,10 +36,24 @@ export function createVolatilityView(
       <!-- Rolling Volatility Section -->
       <div class="chart-card" style="display: flex; flex-direction: column;">
         <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 class="chart-card-title" style="margin: 0;">Rolling Volatility (σ of Hourly Log Returns)</h3>
+          <h3 class="chart-card-title" style="margin: 0;">
+            Rolling Volatility (σ of Hourly Log Returns)
+            ${renderInfoTooltip({
+              title: 'Rolling Historical Volatility',
+              description: 'Sample standard deviation of hourly log returns computed over an backward sliding window of W hours.',
+              formula: '\\sigma_t = \\sqrt{\\frac{1}{W-1}\\sum_{i=0}^{W-1}(r_{t-i} - \\bar{r})^2} \\times 10{,}000\\text{ bps}',
+              caveat: 'Backward-looking window creates visual lag. Sudden volatility spikes appear wider than true duration.',
+              position: 'bottom',
+            })}
+          </h3>
           <div style="display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: var(--text-secondary);">
             <span>Window: <strong id="window-val-label" class="text-info" style="color: var(--color-info);">168h (7d)</strong></span>
             <input type="range" id="vol-window-slider" min="24" max="720" step="24" value="168" style="cursor: pointer; width: 140px; accent-color: var(--accent);" />
+            ${renderInfoTooltip({
+              title: 'Sliding Window Parameter (W)',
+              description: 'Configures sample duration between 24h (1 day) and 720h (30 days). Default 168h represents 1 trading week.',
+              position: 'left',
+            })}
           </div>
         </div>
         <div id="rolling-vol-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px;"></div>
@@ -48,14 +63,32 @@ export function createVolatilityView(
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; flex: 1; min-height: 280px;">
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="margin: 0;">Return Distribution (Hourly Log Returns in Basis Points)</h3>
+            <h3 class="chart-card-title" style="margin: 0;">
+              Return Distribution (Hourly Log Returns in Basis Points)
+              ${renderInfoTooltip({
+                title: 'Empirical Return Distribution',
+                description: 'Histogram of discrete hourly log returns partitioned into 50 basis point intervals.',
+                formula: 'r_t = \\ln(c_t / c_{t-1}) \\times 10{,}000\\text{ bps}',
+                caveat: 'Non-Gaussian Leptokurtosis: Crypto returns feature heavy tails; standard normal assumptions drastically underestimate risk.',
+                position: 'bottom',
+              })}
+            </h3>
           </div>
           <div id="dist-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px; min-height: 260px;"></div>
         </div>
 
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="margin: 0;">Distribution Moments & Risk</h3>
+            <h3 class="chart-card-title" style="margin: 0;">
+              Distribution Moments & Risk
+              ${renderInfoTooltip({
+                title: 'Higher-Order Statistical Moments & Quantiles',
+                description: 'Descriptive metrics quantifying central location, dispersion, skewness, excess kurtosis, and empirical quantile loss cutoffs.',
+                formula: '\\text{Skew} = \\frac{m_3}{s^3}, \\quad \\text{Excess Kurt} = \\frac{m_4}{s^4} - 3',
+                caveat: 'Kurtosis > 3 implies fat tails where extreme multi-sigma flash crashes or short squeezes happen much more frequently than normal theory predicts.',
+                position: 'left',
+              })}
+            </h3>
           </div>
           <div id="dist-stats-panel" class="chart-card-body" style="font-size: var(--text-sm); display: flex; flex-direction: column; gap: 4px; overflow-y: auto;">
             <!-- Filled dynamically -->

@@ -11,6 +11,7 @@ import type { KlineRow, Theme } from '../types';
 import { computeCumulativeTakerDelta } from '../stats/analytics';
 import { computeSeasonality } from '../stats/aggregations';
 import { getChartTheme } from '../ui/theme';
+import { renderInfoTooltip } from '../ui/tooltip';
 
 export interface FlowViewInstance {
   updateData(data: KlineRow[]): void;
@@ -32,7 +33,16 @@ export function createFlowView(
       <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
         <div class="chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="margin: 0;">Cumulative Taker Delta (Net Aggressive Order Flow)</h3>
+            <h3 class="chart-card-title" style="margin: 0;">
+              Cumulative Taker Delta (Net Aggressive Order Flow)
+              ${renderInfoTooltip({
+                title: 'Cumulative Volume Delta (CVD)',
+                description: 'Measures running net aggressive market buying vs aggressive selling in contracts/BTC.',
+                formula: '\\Delta_t = 2 \\times V_{\\text{taker\\_buy}} - V_{\\text{total}}, \\quad \\text{CVD}_T = \\sum_{t=1}^T \\Delta_t',
+                caveat: 'Taker transactions only. Passive limit order liquidity providers represent the exact equal and opposite side of every executed fill.',
+                position: 'bottom',
+              })}
+            </h3>
             <div class="chart-card-subtitle text-muted">
               Formula: Σ(2 · taker_buy_volume − volume) in BTC
             </div>
@@ -46,7 +56,16 @@ export function createFlowView(
       <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 240px;">
         <div class="chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="margin: 0;">Hourly Taker Buy Ratio by Hour of Day (UTC)</h3>
+            <h3 class="chart-card-title" style="margin: 0;">
+              Hourly Taker Buy Ratio by Hour of Day (UTC)
+              ${renderInfoTooltip({
+                title: 'Hourly Taker Buy Ratio (TBR)',
+                description: 'Proportion of aggregate traded volume initiated by aggressive market buy orders across each UTC hour.',
+                formula: '\\text{TBR}_h = \\frac{\\sum_{t \\in h} V_{\\text{taker\\_buy}}}{\\sum_{t \\in h} V_{\\text{total}}}',
+                caveat: 'Values > 0.50 indicate aggressive taker buying. Spikes frequently align with perpetual funding rate settlement boundaries (00:00, 08:00, 16:00 UTC).',
+                position: 'bottom',
+              })}
+            </h3>
             <div class="chart-card-subtitle text-muted">
               Ratio-of-sums: Σtaker_buy_volume / Σvolume (&gt;0.50 indicates net aggressive buying)
             </div>

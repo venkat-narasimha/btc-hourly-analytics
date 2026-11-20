@@ -18,6 +18,7 @@ import { createTopbar, type TopbarStats } from './ui/topbar';
 import { createFilterbar, type Preset } from './ui/filterbar';
 import { createOverviewPage } from './ui/overview';
 import { renderQualityReport } from './ui/quality';
+import { setupTooltipInteractions } from './ui/tooltip';
 import {
   renderOverviewSkeleton,
   renderChartPageSkeleton,
@@ -360,8 +361,9 @@ function mountTab(tab: TabId) {
 }
 
 async function init() {
-  // 1. Enforce initial theme
+  // 1. Enforce initial theme & global tooltip interactions
   saveTheme(currentTheme);
+  setupTooltipInteractions();
 
   // 2. Build application structural layout
   const appEl = document.querySelector<HTMLDivElement>('#app')!;

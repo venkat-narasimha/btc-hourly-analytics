@@ -10,6 +10,7 @@ import * as echarts from 'echarts';
 import type { KlineRow, Theme } from '../types';
 import { computeDrawdownSeries, computeMonthlyReturns } from '../stats/analytics';
 import { getChartTheme } from '../ui/theme';
+import { renderInfoTooltip } from '../ui/tooltip';
 
 export interface CalendarViewInstance {
   updateData(data: KlineRow[]): void;
@@ -32,7 +33,16 @@ export function createCalendarView(
       <!-- Monthly Returns Grid -->
       <div class="chart-card">
         <div class="chart-card-header">
-          <h3 class="chart-card-title" style="margin: 0;">Monthly Return Matrix (Year × Month)</h3>
+          <h3 class="chart-card-title" style="margin: 0;">
+            Monthly Return Matrix (Year × Month)
+            ${renderInfoTooltip({
+              title: 'Monthly Return Matrix & YTD Compounding',
+              description: 'Percentage price performance grouped by calendar month, with discrete geometrically compounded Year-to-Date (YTD) returns.',
+              formula: 'R_{\\text{month}} = \\frac{P_{\\text{end}} - P_{\\text{start}}}{P_{\\text{start}}} \\times 100\\%, \\quad R_{\\text{YTD}} = \\left(\\prod_{m=1}^M (1 + r_m) - 1\\right) \\times 100\\%',
+              caveat: 'Calendar months vary between 28 and 31 days (672 to 744 hourly bars). YTD uses exact discrete compounding.',
+              position: 'bottom',
+            })}
+          </h3>
         </div>
         <div id="monthly-matrix-container" class="chart-card-body" style="overflow-x: auto;"></div>
       </div>
@@ -41,7 +51,16 @@ export function createCalendarView(
       <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
         <div class="chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="margin: 0;">Historical Underwater / Drawdown Chart</h3>
+            <h3 class="chart-card-title" style="margin: 0;">
+              Historical Underwater / Drawdown Chart
+              ${renderInfoTooltip({
+                title: 'High-Water Mark Drawdown Series',
+                description: 'Measures continuous loss relative to the highest peak close price recorded up to each hourly bar.',
+                formula: '\\text{HWM}_t = \\max_{\\tau \\le t} P_\\tau, \\quad \\text{DD}_t = \\frac{P_t - \\text{HWM}_t}{\\text{HWM}_t} \\times 100\\%',
+                caveat: 'Measured on hourly bar closes. Sub-hourly flash crashes (e.g. March 2020) were deeper on intra-candle wick lows.',
+                position: 'bottom',
+              })}
+            </h3>
             <div class="chart-card-subtitle text-muted">
               Calculated from high-water mark close prices
             </div>

@@ -20,6 +20,7 @@ import {
 } from '../stats/aggregations';
 import { TRADING_SESSIONS } from '../stats/analytics';
 import { getChartTheme } from '../ui/theme';
+import { renderInfoTooltip } from '../ui/tooltip';
 
 export interface SeasonalityChartInstance {
   updateData(data: KlineRow[]): void;
@@ -43,20 +44,36 @@ export function createSeasonalityView(
     <div class="seasonality-view" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
       <div class="filterbar seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
         <div style="display: flex; gap: 12px; align-items: center;">
-          <label style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
-          <select id="seasonality-metric-select" class="styled-select" style="padding: 6px 10px; font-size: var(--text-sm); cursor: pointer;">
-            <option value="mean_return">Mean Return (bps)</option>
-            <option value="volatility">Volatility (σ, bps)</option>
-            <option value="win_rate">Win Rate (%)</option>
-            <option value="total_volume">Total Volume (BTC)</option>
-            <option value="taker_buy_ratio">Taker Buy Ratio</option>
-            <option value="mean_hl_range">Mean H-L Range (bps)</option>
-          </select>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
+            <select id="seasonality-metric-select" class="styled-select" style="padding: 6px 10px; font-size: var(--text-sm); cursor: pointer;">
+              <option value="mean_return">Mean Return (bps)</option>
+              <option value="volatility">Volatility (σ, bps)</option>
+              <option value="win_rate">Win Rate (%)</option>
+              <option value="total_volume">Total Volume (BTC)</option>
+              <option value="taker_buy_ratio">Taker Buy Ratio</option>
+              <option value="mean_hl_range">Mean H-L Range (bps)</option>
+            </select>
+            ${renderInfoTooltip({
+              title: 'Seasonality Metric Computation',
+              description: 'Selects the aggregation statistic evaluated across recurring cyclical time buckets.',
+              caveat: 'Averages span multiple bull/bear market regimes and may mask regime-specific variance.',
+              position: 'bottom',
+            })}
+          </div>
 
-          <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; margin-left: 12px;">
-            <input type="checkbox" id="session-overlay-toggle" />
-            <span>Trading Sessions Overlay</span>
-          </label>
+          <div style="display: flex; align-items: center; gap: 6px; margin-left: 12px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer;">
+              <input type="checkbox" id="session-overlay-toggle" />
+              <span>Trading Sessions Overlay</span>
+            </label>
+            ${renderInfoTooltip({
+              title: 'Global Trading Sessions (UTC)',
+              description: 'Color-coded bands marking Asia (00:00–08:00 UTC), Europe (07:00–16:00 UTC), and US (13:00–22:00 UTC) trading hours.',
+              caveat: 'Peak cross-continental liquidity and volatility cluster during the London/New York session overlap (13:00–16:00 UTC).',
+              position: 'bottom',
+            })}
+          </div>
         </div>
 
         <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
@@ -67,13 +84,30 @@ export function createSeasonalityView(
       <div class="seasonality-charts-grid" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Hour of Day (UTC)</h3>
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">
+              Hour of Day (UTC)
+              ${renderInfoTooltip({
+                title: 'Diurnal Return Seasonality (00:00–23:00 UTC)',
+                description: 'Aggregated metric for each individual hour of the day across all historical observations.',
+                formula: '\\bar{r}_h = \\frac{1}{N_h} \\sum_{t \\in h} r_t',
+                caveat: 'Diurnal patterns are descriptive and have low explanatory power on any single future trading day.',
+                position: 'bottom',
+              })}
+            </h3>
           </div>
           <div id="hour-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
         </div>
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Day of Week (UTC)</h3>
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">
+              Day of Week (UTC)
+              ${renderInfoTooltip({
+                title: 'Day-of-Week Seasonality (Mon–Sun UTC)',
+                description: 'Aggregated metric for each calendar day of the week to detect weekend liquidity drain vs weekday patterns.',
+                formula: '\\bar{r}_d = \\frac{1}{N_d} \\sum_{t \\in d} r_t',
+                position: 'bottom',
+              })}
+            </h3>
           </div>
           <div id="dow-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
         </div>

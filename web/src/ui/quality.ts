@@ -10,6 +10,7 @@
  */
 
 import type { Meta, QualityReport } from '../types';
+import { renderInfoTooltip } from './tooltip';
 
 export function renderQualityReport(
   container: HTMLElement,
@@ -49,25 +50,58 @@ export function renderQualityReport(
       <!-- Top Metrics Banner: 4 KPI Cards -->
       <div class="kpi-grid">
         <div class="kpi-card">
-          <span class="kpi-label">Hourly Coverage</span>
+          <span class="kpi-label">
+            <span>Hourly Coverage</span>
+            ${renderInfoTooltip({
+              title: 'Ingestion Coverage Ratio',
+              description: 'Percentage of expected calendar hours present with valid verified OHLCV bars.',
+              formula: '\\text{Coverage} = \\frac{N_{\\text{actual}}}{N_{\\text{expected}}} \\times 100\\%',
+              caveat: 'Missing bars strictly correspond to documented Binance exchange downtime.',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value ${covClass}">${report.coverage_pct.toFixed(2)}%</div>
           <span class="kpi-sub font-tabular">${report.actual_rows.toLocaleString()} / ${report.expected_hours.toLocaleString()} expected hours</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Checksum Verification</span>
+          <span class="kpi-label">
+            <span>Checksum Verification</span>
+            ${renderInfoTooltip({
+              title: 'Cryptographic Checksum Audit',
+              description: 'Every monthly and daily ZIP archive downloaded from Binance Vision is validated against official SHA-256 hashes.',
+              formula: '\\text{SHA-256}(\\text{archive}) \\equiv \\text{hash}_{\\.CHECKSUM}',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value positive">${report.checksums_verified.toLocaleString()}</div>
           <span class="kpi-sub">SHA-256 archives matched 100%</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Deduplicated Bars</span>
+          <span class="kpi-label">
+            <span>Deduplicated Bars</span>
+            ${renderInfoTooltip({
+              title: 'Timestamp Deduplication',
+              description: 'Identical open_time timestamps resolved deterministically by preferring monthly finalized over daily archive slices.',
+              formula: '\\text{Unique}(t_{\\text{open}})',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value text-info">${report.duplicates_removed}</div>
           <span class="kpi-sub font-tabular">${report.quarantined_rows.length} invalid rows quarantined</span>
         </div>
 
         <div class="kpi-card">
-          <span class="kpi-label">Zero-Volume Bars</span>
+          <span class="kpi-label">
+            <span>Zero-Volume Bars</span>
+            ${renderInfoTooltip({
+              title: 'Zero Volume Integrity Check',
+              description: 'Candles with 0.0 traded volume. Kept intact because price continuity remains unbroken.',
+              caveat: 'Zero-volume bars typically occur during matching engine freezes or test intervals.',
+              position: 'bottom',
+            })}
+          </span>
           <div class="kpi-value">${report.zero_volume_bars}</div>
           <span class="kpi-sub">Retained as valid market hours</span>
         </div>
@@ -79,7 +113,14 @@ export function renderQualityReport(
         <div class="chart-card bento-col-6">
           <div class="chart-card-header">
             <div>
-              <div class="chart-card-title">Ingestion & Parser Pipeline Details</div>
+              <div class="chart-card-title">
+                Ingestion & Parser Pipeline Details
+                ${renderInfoTooltip({
+                  title: 'Ingestion Pipeline Normalizations',
+                  description: 'Automated ETL handling millisecond/microsecond timestamp variants, header sniffing, and data validation.',
+                  position: 'bottom',
+                })}
+              </div>
               <div class="chart-card-subtitle">Normalizations handled automatically by pipeline ETL</div>
             </div>
           </div>
@@ -117,7 +158,15 @@ export function renderQualityReport(
         <div class="chart-card bento-col-6">
           <div class="chart-card-header">
             <div>
-              <div class="chart-card-title">Annual Observation Counts</div>
+              <div class="chart-card-title">
+                Annual Observation Counts
+                ${renderInfoTooltip({
+                  title: 'Annual Calendar Completeness',
+                  description: 'Validation against standard leap and non-leap annual calendar hours.',
+                  formula: 'H = 8{,}760\\text{ (std)} \\quad / \\quad 8{,}784\\text{ (leap)}',
+                  position: 'bottom',
+                })}
+              </div>
               <div class="chart-card-subtitle">Expected 8,760h per regular year, 8,784h leap year</div>
             </div>
           </div>
@@ -165,7 +214,15 @@ export function renderQualityReport(
         <div class="chart-card">
           <div class="chart-card-header">
             <div>
-              <div class="chart-card-title text-warning">Recorded Exchange Outage Gaps</div>
+              <div class="chart-card-title text-warning">
+                Recorded Exchange Outage Gaps
+                ${renderInfoTooltip({
+                  title: 'Preserved Gap Discontinuities',
+                  description: 'Chronological gaps where Binance matching engines halted during scheduled maintenance or unplanned connectivity dropouts.',
+                  caveat: 'These gaps are intentionally NOT forward-filled to avoid injecting false low-volatility synthetic drift.',
+                  position: 'bottom',
+                })}
+              </div>
               <div class="chart-card-subtitle">Consecutive bars missing from Binance Vision; log returns recorded as null</div>
             </div>
             <span class="badge badge-warning">${gapsCount} Discontinuities</span>
@@ -203,7 +260,16 @@ export function renderQualityReport(
       <div class="chart-card">
         <div class="chart-card-header">
           <div>
-            <div class="chart-card-title">Release Artifact Provenance</div>
+            <div class="chart-card-title">
+              Release Artifact Provenance
+              ${renderInfoTooltip({
+                title: 'Release Artifact Audit Stamp',
+                description: 'Verifies the cryptographic commit SHA, build timestamp, and static Parquet artifact release.',
+                formula: '\\text{Pipeline Git Commit} = ' + meta.pipeline_git_sha.substring(0, 8),
+                caveat: 'Static web hosting guarantees that data is deterministic and reproducible without backend dependencies.',
+                position: 'top',
+              })}
+            </div>
             <div class="chart-card-subtitle">Versioned release metadata and reproducibility stamps</div>
           </div>
         </div>

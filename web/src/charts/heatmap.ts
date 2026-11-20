@@ -9,6 +9,7 @@ import type { KlineRow, SeasonalityMetric, Theme } from '../types';
 import { computeHeatmap } from '../stats/analytics';
 import { DOW_LABELS, METRIC_INFO } from '../stats/aggregations';
 import { getChartTheme } from '../ui/theme';
+import { renderInfoTooltip } from '../ui/tooltip';
 
 export interface HeatmapChartInstance {
   updateData(data: KlineRow[]): void;
@@ -40,6 +41,12 @@ export function createHeatmapView(
             <option value="taker_buy_ratio">Taker Buy Ratio</option>
             <option value="mean_hl_range">Mean H-L Range (bps)</option>
           </select>
+          ${renderInfoTooltip({
+            title: 'Heatmap Metric Aggregation',
+            description: 'Computes the specified summary statistic across all samples sharing the same (Day of Week, Hour of Day) coordinate.',
+            formula: 'M_{d,h} = f\\Big(\\{x_t \\mid \\text{day}(t) = d, \\; \\text{hour}(t) = h\\}\\Big)',
+            position: 'bottom',
+          })}
         </div>
         <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
           ~350–360 observations per cell · beware multiple testing & noise · returns in UTC
@@ -47,8 +54,19 @@ export function createHeatmapView(
       </div>
       <div class="chart-card" style="display: flex; flex-direction: column;">
         <div class="chart-card-header">
-          <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Hourly Seasonality Heatmap</h3>
-          <span class="chart-card-subtitle" style="font-size: var(--text-xs); color: var(--text-muted);">Day of Week × Hour of Day (UTC)</span>
+          <div>
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">
+              Hourly Seasonality Heatmap
+              ${renderInfoTooltip({
+                title: '7×24 Interaction Grid (168 Cells)',
+                description: 'Full bivariate cross-tabulation mapping market behavior across all 168 hours of the trading week.',
+                formula: 'n \\approx 350\\text{--}360\\text{ observations per cell}',
+                caveat: 'Multiple Testing Hazard: Testing 168 cells simultaneously will yield seemingly significant statistical anomalies purely by chance without false discovery rate adjustments.',
+                position: 'bottom',
+              })}
+            </h3>
+            <span class="chart-card-subtitle" style="font-size: var(--text-xs); color: var(--text-muted);">Day of Week × Hour of Day (UTC)</span>
+          </div>
         </div>
         <div id="heatmap-chart" class="chart-card-body no-padding" style="width: 100%; height: 480px; min-height: 480px;"></div>
       </div>
