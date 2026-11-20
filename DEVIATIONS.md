@@ -31,3 +31,9 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Why**: Statistical rigor dictates sample standard deviation with Bessel's correction ($\div(N-1)$) for estimating return volatility from finite window samples, while skewness ($g_1$) and excess kurtosis ($g_2$) are standardized third and fourth central moments defined via population $\sigma_{\text{pop}}$.
 - **Alternative**: Implemented sample standard deviation ($\div(N-1)$) for all volatility computations and return summaries, while calculating population moment $g_1/g_2$ internally.
 - **Impact**: Volatility metrics accurately estimate population parameters without finite-sample negative bias; rolling volatility cleanly excludes missing bars rather than zero-filling.
+
+## DEV-006: Asynchronous Web Startup & Extended Cold-Start Healthcheck
+- **What**: Web service starts concurrently with ETL rather than blocking on strict healthcheck dependency; ETL healthcheck `start_period` set to 300s.
+- **Why**: Initial cold startup downloads ~100 historical Binance Vision monthly and daily archive files, which can take up to 3–5 minutes. Enforcing `service_healthy` on `web.depends_on` prematurely marked containers unhealthy and blocked Nginx from booting; the SPA already features built-in retry polling with an interactive loading stepper (`loadArtifactsWithRetry`).
+- **Alternative**: `web.depends_on` maintains service ordering (`- etl`) while web boots immediately to display loading feedback; ETL healthcheck `start_period` extended to 300s to allow complete archive downloads before evaluating container health.
+- **Impact**: Clean cold boots on fresh volumes without container restarts or premature failure states.

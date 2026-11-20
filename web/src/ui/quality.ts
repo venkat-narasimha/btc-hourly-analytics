@@ -34,6 +34,10 @@ export function renderQualityReport(
   const gapsCount = report.missing_ranges.length;
   const covClass = report.coverage_pct >= 99 ? 'positive' : report.coverage_pct >= 95 ? 'warning' : 'negative';
 
+  const totalDownloaded = (meta.files_downloaded?.monthly ?? 0) + (meta.files_downloaded?.daily ?? 0);
+  const checksumPct = totalDownloaded > 0 ? ((report.checksums_verified / totalDownloaded) * 100).toFixed(0) : '100';
+  const totalViolations = report.quarantined_rows.reduce((sum, r) => sum + r.count, 0);
+
   const liveAgeHours = (Date.now() - meta.last_open_ms) / 3.6e6;
   const isStale = liveAgeHours > 48;
   const freshnessText = `${liveAgeHours.toFixed(1)}h ago`;
@@ -84,7 +88,7 @@ export function renderQualityReport(
             })}
           </span>
           <div class="kpi-value positive">${report.checksums_verified.toLocaleString()}</div>
-          <span class="kpi-sub">SHA-256 archives matched 100%</span>
+          <span class="kpi-sub font-tabular">${report.checksums_verified.toLocaleString()} / ${totalDownloaded.toLocaleString()} archives matched (${checksumPct}%)</span>
         </div>
 
         <div class="kpi-card">
@@ -92,7 +96,7 @@ export function renderQualityReport(
             <span>Deduplicated Bars</span>
             ${renderInfoTooltip({
               title: 'Timestamp Deduplication',
-              description: 'Identical open_time timestamps resolved deterministically by preferring monthly finalized over daily archive slices.',
+              description: 'Identical open_time timestamps resolved deterministically by preferring daily archive slices over monthly files on conflict (keep="last").',
               formula: 'Unique(open_time_ms)',
               position: 'bottom',
             })}
@@ -141,6 +145,10 @@ export function renderQualityReport(
                 <span class="insight-value">${meta.files_downloaded?.monthly ?? 0} monthly + ${meta.files_downloaded?.daily ?? 0} daily</span>
               </div>
               <div class="insight-row">
+                <span class="insight-label">Checksums Matched</span>
+                <span class="insight-value ${report.checksums_verified >= totalDownloaded && totalDownloaded > 0 ? 'text-positive' : 'text-warning'} font-tabular">${report.checksums_verified.toLocaleString()} / ${totalDownloaded.toLocaleString()} matched (${checksumPct}%)</span>
+              </div>
+              <div class="insight-row">
                 <span class="insight-label">Timestamp Units Detected</span>
                 <span class="insight-value">${report.files_ms} ms files / ${report.files_us} µs files</span>
               </div>
@@ -154,7 +162,7 @@ export function renderQualityReport(
               </div>
               <div class="insight-row">
                 <span class="insight-label">Negative/Zero Price Violations</span>
-                <span class="insight-value text-positive">0 violations detected</span>
+                <span class="insight-value ${totalViolations === 0 ? 'text-positive' : 'text-negative'} font-tabular">${totalViolations.toLocaleString()} violation${totalViolations === 1 ? '' : 's'} detected</span>
               </div>
               <div class="insight-row">
                 <span class="insight-label">Exchange Outage Gaps</span>

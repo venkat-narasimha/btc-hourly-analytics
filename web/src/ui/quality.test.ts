@@ -68,4 +68,25 @@ describe('renderQualityReport freshness badge', () => {
     expect(container.innerHTML).toContain('Fresh Data');
     expect(container.innerHTML).toContain('Operational normal 4.5–28.5h');
   });
+
+  it('derives violations and checksums rows dynamically from report data', () => {
+    const container = { innerHTML: '' } as unknown as HTMLElement;
+    const reportWithViolations: QualityReport = {
+      ...baseReport,
+      checksums_verified: 95,
+      quarantined_rows: [
+        { reason: 'open <= 0', count: 3 },
+        { reason: 'high < low', count: 2 },
+      ],
+    };
+
+    renderQualityReport(container, baseMeta, reportWithViolations);
+
+    // 80 monthly + 15 daily = 95 total
+    expect(container.innerHTML).toContain('95 / 95 matched (100%)');
+    // 3 + 2 = 5 violations
+    expect(container.innerHTML).toContain('5 violations detected');
+    // Dedupe tooltip mentions daily wins over monthly on conflict
+    expect(container.innerHTML).toContain('preferring daily archive slices over monthly files on conflict');
+  });
 });
