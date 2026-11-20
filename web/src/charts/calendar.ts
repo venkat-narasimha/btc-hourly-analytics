@@ -38,7 +38,7 @@ export function createCalendarView(
             ${renderInfoTooltip({
               title: 'Monthly Return Matrix & YTD Compounding',
               description: 'Percentage price performance grouped by calendar month, with discrete geometrically compounded Year-to-Date (YTD) returns.',
-              formula: 'R_month = ((Close_end − Close_start) / Close_start) × 100%,   R_YTD = [ Π(1 + r_m) − 1 ] × 100%',
+              formula: 'R_month = ((Close_end − Open_start) / Open_start) × 100%,   R_YTD = [ Π(1 + r_m) − 1 ] × 100%',
               caveat: 'Calendar months vary between 28 and 31 days (672 to 744 hourly bars). YTD uses exact discrete compounding.',
               position: 'bottom',
             })}
@@ -156,8 +156,10 @@ export function createCalendarView(
         formatter: (params: any) => {
           const idx = params[0].dataIndex;
           const p = series[idx];
+          const d = new Date(p.timeMs);
+          const dtStr = `${d.toISOString().slice(0, 10)} ${String(d.getUTCHours()).padStart(2, '0')}:00 UTC`;
           return `
-            <div>${times[idx]}</div>
+            <div>${dtStr}</div>
             <div>Close: <strong>$${p.close.toLocaleString()}</strong></div>
             <div>High-Water Peak: <strong>$${p.peak.toLocaleString()}</strong></div>
             <div>Drawdown: <strong style="color: var(--color-negative);">${p.drawdownPct.toFixed(2)}%</strong></div>

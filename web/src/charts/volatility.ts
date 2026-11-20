@@ -67,7 +67,7 @@ export function createVolatilityView(
               Return Distribution (Hourly Log Returns in Basis Points)
               ${renderInfoTooltip({
                 title: 'Empirical Return Distribution',
-                description: 'Histogram of discrete hourly log returns partitioned into 50 basis point intervals.',
+                description: 'Histogram of discrete hourly log returns partitioned into 50 equal-width bins spanning the observed range.',
                 formula: 'r_t = ln(Close_t / Close_t-1) × 10,000 bps',
                 caveat: 'Non-Gaussian Leptokurtosis: Crypto returns feature heavy tails; standard normal assumptions drastically underestimate risk.',
                 position: 'bottom',
@@ -125,8 +125,11 @@ export function createVolatilityView(
         textStyle: { color: colors.tooltipText },
         formatter: (params: any) => {
           const item = params[0];
+          const pt = points[item.dataIndex];
+          const d = new Date(pt.timeMs);
+          const dtStr = `${d.toISOString().slice(0, 10)} ${String(d.getUTCHours()).padStart(2, '0')}:00 UTC`;
           return `
-            <div>${times[item.dataIndex]}</div>
+            <div>${dtStr}</div>
             <div>Rolling Volatility: <strong>${item.value} bps</strong></div>
           `;
         },
@@ -226,7 +229,7 @@ export function createVolatilityView(
       </div>
       <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
         <span style="color: var(--text-secondary);">Excess Kurtosis</span>
-        <strong style="color: var(--color-info); font-family: var(--font-mono, monospace);">${stats.kurtosis.toFixed(2)} (Fat tails)</strong>
+        <strong style="color: var(--color-info); font-family: var(--font-mono, monospace);">${stats.kurtosis.toFixed(2)}${stats.kurtosis > 0 ? ' (Fat tails)' : ''}</strong>
       </div>
       <div style="margin-top: 8px; font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Quantiles (bps)</div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: var(--text-xs);">
@@ -243,11 +246,15 @@ export function createVolatilityView(
     `;
   }
 
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   slider.addEventListener('input', () => {
     currentWindow = Number(slider.value);
     const days = Math.round(currentWindow / 24);
     windowLabel.textContent = `${currentWindow}h (${days}d)`;
-    renderRollingVol();
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      renderRollingVol();
+    }, 150);
   });
 
   const ro = new ResizeObserver(() => {

@@ -7,6 +7,7 @@
 import type { KlineRow, Meta, QualityReport } from '../types';
 import { computeSeasonality, DOW_LABELS } from '../stats/aggregations';
 import { computeDrawdownSeries } from '../stats/analytics';
+import { formatSignedBps } from '../stats/display';
 import { renderInfoTooltip } from './tooltip';
 
 export function createOverviewPage(
@@ -38,6 +39,9 @@ export function createOverviewPage(
 
   const coveragePct = qualityData?.coverage_pct ?? 100;
   const covClass = coveragePct >= 99 ? 'positive' : coveragePct >= 95 ? 'warning' : 'negative';
+
+  const isFiltered = meta ? data.length < meta.rows : false;
+  const periodLabel = isFiltered ? 'selected range' : 'full period';
 
   const lastBar = data[data.length - 1];
   const firstBar = data[0];
@@ -144,7 +148,7 @@ export function createOverviewPage(
             })}
           </span>
           <div class="kpi-value ${priceClass}">$${latestPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
-          <span class="kpi-sub ${priceClass}">${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}% full period</span>
+          <span class="kpi-sub ${priceClass}">${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}% ${periodLabel}</span>
         </div>
 
         <div class="kpi-card">
@@ -187,19 +191,19 @@ export function createOverviewPage(
             <div class="overview-insights-grid">
               <div class="insight-row">
                 <span class="insight-label">Best Hour (Mean Return)</span>
-                <span class="insight-value text-positive">${String(bestHour.bucket).padStart(2, '0')}:00 UTC (+${bestHour.value.toFixed(1)} bps)</span>
+                <span class="insight-value ${bestHour.value >= 0 ? 'text-positive' : 'text-negative'}">${String(bestHour.bucket).padStart(2, '0')}:00 UTC (${formatSignedBps(bestHour.value)})</span>
               </div>
               <div class="insight-row">
                 <span class="insight-label">Worst Hour (Mean Return)</span>
-                <span class="insight-value text-negative">${String(worstHour.bucket).padStart(2, '0')}:00 UTC (${worstHour.value.toFixed(1)} bps)</span>
+                <span class="insight-value ${worstHour.value >= 0 ? 'text-positive' : 'text-negative'}">${String(worstHour.bucket).padStart(2, '0')}:00 UTC (${formatSignedBps(worstHour.value)})</span>
               </div>
               <div class="insight-row">
                 <span class="insight-label">Best Day of Week</span>
-                <span class="insight-value text-positive">${DOW_LABELS[bestDow.bucket]} (+${bestDow.value.toFixed(1)} bps)</span>
+                <span class="insight-value ${bestDow.value >= 0 ? 'text-positive' : 'text-negative'}">${DOW_LABELS[bestDow.bucket]} (${formatSignedBps(bestDow.value)})</span>
               </div>
               <div class="insight-row">
                 <span class="insight-label">Worst Day of Week</span>
-                <span class="insight-value text-negative">${DOW_LABELS[worstDow.bucket]} (${worstDow.value.toFixed(1)} bps)</span>
+                <span class="insight-value ${worstDow.value >= 0 ? 'text-positive' : 'text-negative'}">${DOW_LABELS[worstDow.bucket]} (${formatSignedBps(worstDow.value)})</span>
               </div>
               <div class="insight-row">
                 <span class="insight-label">Hourly Win Rate</span>
@@ -228,7 +232,7 @@ export function createOverviewPage(
               </div>
               <div class="chart-card-subtitle">Expected 8,760h per normal year, 8,784h leap year</div>
             </div>
-            <span class="badge badge-positive">Integrity Verified</span>
+            <span class="badge ${coveragePct >= 99 ? 'badge-positive' : 'badge-warning'}">${coveragePct >= 99 ? 'Integrity Verified' : 'Gaps Present'}</span>
           </div>
           <div class="chart-card-body">
             <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -268,7 +272,7 @@ export function createOverviewPage(
                 title: 'Data Provenance & Pipeline Integrity',
                 description: 'End-to-end data lineage connecting client visualization to verified immutable Parquet release artifacts.',
                 formula: 'SHA-256(archive) == Verified Checksum',
-                caveat: 'DuckDB-Wasm queries run locally in-browser via HTTP byte-range requests against static Parquet files without backend servers.',
+                caveat: 'hyparquet parses static Parquet files directly in-browser via HTTP byte-range requests without backend servers.',
                 position: 'top',
               })}
             </div>

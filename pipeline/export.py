@@ -141,7 +141,7 @@ def fsync_release_dir(release_dir: Path) -> None:
     for file_path in release_dir.iterdir():
         if file_path.is_file():
             try:
-                with open(file_path, "rb") as f:
+                with open(file_path, "r+b") as f:
                     os.fsync(f.fileno())
             except OSError as e:
                 logger.warning(f"Failed to fsync {file_path}: {e}")

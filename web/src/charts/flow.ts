@@ -10,6 +10,7 @@ import * as echarts from 'echarts';
 import type { KlineRow, Theme } from '../types';
 import { computeCumulativeTakerDelta } from '../stats/analytics';
 import { computeSeasonality } from '../stats/aggregations';
+import { computeTbrAxisBounds } from '../stats/display';
 import { getChartTheme } from '../ui/theme';
 import { renderInfoTooltip } from '../ui/tooltip';
 
@@ -155,6 +156,7 @@ export function createFlowView(
     const hourlyData = computeSeasonality(currentData, 'hour', 'taker_buy_ratio');
     const hourLabels = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
     const ratios = hourlyData.map(d => Number((d.value * 100).toFixed(2))); // in %
+    const axisBounds = computeTbrAxisBounds(ratios);
 
     hourlyChart.setOption({
       backgroundColor: 'transparent',
@@ -183,8 +185,8 @@ export function createFlowView(
       },
       yAxis: {
         type: 'value',
-        min: 45,
-        max: 55,
+        min: axisBounds.min,
+        max: axisBounds.max,
         name: '%',
         nameTextStyle: { color: colors.textSecondary },
         splitLine: { lineStyle: { color: colors.gridLineColor } },

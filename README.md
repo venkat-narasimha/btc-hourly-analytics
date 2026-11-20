@@ -149,9 +149,9 @@ make dev
 All automated tests use self-contained synthetic fixtures and require **no network connection**:
 
 ```bash
-# Python pipeline tests (45 tests)
+# Python pipeline tests (52 tests)
 .venv/Scripts/pytest pipeline/tests/ -v
 
-# Web unit tests (26 tests)
+# Web unit tests (41 tests)
 cd web && npm test -- --run
 ```

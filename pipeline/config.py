@@ -45,10 +45,9 @@ PARQUET_COLUMNS = [
 HOUR_MS = 3_600_000
 
 # User-Agent for HTTP requests
-USER_AGENT = "btc-hourly-analytics-etl/1.0 (github.com/btc-hourly-analytics; educational)"
+USER_AGENT = "btc-hourly-analytics-etl/1.0 (github.com/venkat-narasimha/btc-hourly-analytics; educational)"
 
-# Download concurrency and timeouts
-MAX_CONCURRENT_DOWNLOADS = 4
+# Download timeouts and retries
 DOWNLOAD_TIMEOUT_S = 60
 MAX_RETRIES = 3
 BACKOFF_BASE_S = 2.0

@@ -153,6 +153,8 @@ def download_and_verify(
         cached_bytes = cached.read_bytes()
         if verify_checksum(cached_bytes, expected_hash):
             logger.debug(f"Cache hit: {zip_url}")
+            if stats is not None:
+                stats["checksums_verified"] = stats.get("checksums_verified", 0) + 1
             return cached_bytes
         else:
             logger.warning(f"Cache checksum mismatch, re-downloading: {zip_url}")

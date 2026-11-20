@@ -8,9 +8,9 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Alternative**: Standard `python -m venv` + `pip` with `requirements.txt` and `requirements-dev.txt` (pinned). Docker images use `pip install` as well. Functionally equivalent for dependency management.
 - **Impact**: `uv.lock` replaced by `requirements.txt` / `requirements-dev.txt`. Makefile targets adjusted.
 
-## DEV-002: `docker compose` subcommand → `docker-compose` v1 CLI
-- **What**: PLAN.md references `docker compose` (v2 plugin syntax). The system has `docker-compose` (Compose v5.7.0 standalone).
-- **Why**: Docker on this machine exposes `docker-compose` but not the `docker compose` plugin alias.
+## DEV-002: `docker compose` subcommand → `docker-compose` CLI
+- **What**: PLAN.md references `docker compose` (v2 plugin syntax). The system has `docker-compose` CLI available.
+- **Why**: Docker on this machine exposes `docker-compose` command.
 - **Alternative**: Use `docker-compose` command. Compose file format is identical. README documents both.
 - **Impact**: None to functionality; `Makefile` and docs use `docker-compose`.
 
