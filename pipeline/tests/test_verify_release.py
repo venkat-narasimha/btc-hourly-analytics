@@ -6,7 +6,6 @@ Fully offline test using synthetic local ZIP archives and CHECKSUM files.
 import hashlib
 import io
 import json
-import os
 import subprocess
 import sys
 import zipfile
@@ -30,7 +29,7 @@ def test_verify_release_offline(tmp_path: Path):
     assert kit_script.exists()
 
     # Create mock server / directory tree simulating Binance Vision archive hosting
-    mirror_dir = tmp_path / "mirror" / "data" / "spot" / "monthly" / "klines" / "BTCUSDT" / "1h"
+    mirror_dir = tmp_path / "mirror" / "data" / "futures" / "um" / "monthly" / "klines" / "BTCUSDT" / "1h"
     mirror_dir.mkdir(parents=True, exist_ok=True)
 
     # 3 consecutive hourly bars in 2023-11
@@ -83,12 +82,12 @@ def test_verify_release_offline(tmp_path: Path):
         },
         "source_files": [
             {
-                "url": "https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2023-11.zip",
+                "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2023-11.zip",
                 "sha256": sha_1,
                 "kind": "monthly",
             },
             {
-                "url": "https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2023-12.zip",
+                "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2023-12.zip",
                 "sha256": sha_2,
                 "kind": "monthly",
             },

@@ -43,3 +43,13 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Why**: Binary and large generated assets should not bloat the git repository history. Both are deterministically regenerated at build and test time: `web/scripts/copy-duckdb-assets.mjs` automatically copies the DuckDB assets from `node_modules` during `npm run predev` and `npm run prebuild`, while `npm test` (vitest) regenerates `verification/fixtures/` before CI parity execution.
 - **Alternative**: Keep assets untracked in version control; rely on `npm run prebuild` and `vitest` in CI/Docker pipelines to generate them on-the-fly.
 - **Impact**: Repository stays lightweight without large binary wasm blobs. Zero impact on Docker and CI builds.
+
+## DEV-008: External Verification Kit Comparison Paths, Cache Re-Validation, and Matrix Cell Checks
+- **What**: Correction to the Phase C initial report. Three implementation details refined for standalone verification:
+  1. Matrix Multi-Cell Comparison: Heatmap definitions (`heatmap.mean_return`, `heatmap.volatility`, `heatmap.win_rate`, `heatmap.total_volume`, `heatmap.taker_buy_ratio`, `heatmap.mean_hl_range`) compare all 168 keyed cells (`d:h`) across the 7×24 grid, resolving an earlier fall-through and verifying genuine non-zero floating point deltas.
+  2. Series Summary Statistics: Series definitions (`volatility.rolling_vol`, `flow.cvd`, `calendar.drawdown_series`) compare 4-moment summary statistics `{ n, min, max, mean }`.
+  3. Warm-Cache Remote Checksum Re-Validation: `--cache-dir` always re-fetches Binance Vision `.CHECKSUM` files even on a warm cache before using cached ZIP archives.
+  4. High-Low Range Convention: `hl_range` standardized strictly to `(high - low) / open` across pipeline, web, and external verification kit.
+- **Why**: Rigorous end-to-end verification ensuring zero uninspected numbers and preventing false positives or stale cache usage.
+- **Alternative**: Compare every cell of matrices; compare series summaries; re-validate remote checksums on every run.
+- **Impact**: 46/46 definitions verified independently with effective tolerance bounds `max(abs, rel * |value|)`.

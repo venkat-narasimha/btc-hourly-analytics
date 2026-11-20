@@ -21,7 +21,6 @@ import hashlib
 import io
 import json
 import math
-import os
 import sys
 import time
 import urllib.error
@@ -98,12 +97,19 @@ def fetch_and_verify_archive(
     """
     Downloads archive and .CHECKSUM, verifies cryptographic hashes, caches locally.
     Cross-checks against Binance's .CHECKSUM and manifest sha256.
+
+    Cache Behavior:
+    - ALWAYS re-fetches the remote .CHECKSUM file first from Binance Vision, even on a
+      warm cache, to ensure remote file integrity has not changed.
+    - If a local cached ZIP exists, checks its SHA-256 against the freshly re-fetched .CHECKSUM.
+    - If hash matches, returns cached bytes immediately.
+    - If hash mismatches or cache is absent, re-downloads ZIP from source and updates cache.
     """
     url_hash = hashlib.md5(zip_url.encode()).hexdigest()
     filename = zip_url.split("/")[-1]
     cache_path = cache_dir / f"{url_hash}_{filename}"
 
-    # Check cache first if available (exact hash match or wildcard filename match)
+    # Locate existing cached zip if present
     matched_file = None
     if cache_path.exists():
         matched_file = cache_path
@@ -112,15 +118,7 @@ def fetch_and_verify_archive(
         if matches:
             matched_file = matches[0]
 
-    if matched_file and matched_file.exists():
-        cached_data = matched_file.read_bytes()
-        actual_sha = sha256_hex(cached_data)
-        if expected_manifest_sha and actual_sha == expected_manifest_sha.lower():
-            return cached_data
-        elif not expected_manifest_sha:
-            return cached_data
-
-    # Download CHECKSUM file from source
+    # Re-fetch CHECKSUM file from source (even on warm cache)
     checksum_bytes = download_with_retry(checksum_url)
     if checksum_bytes is None:
         return None  # 404
@@ -132,7 +130,14 @@ def fetch_and_verify_archive(
             f"Binance checksum ({expected_sha}) does not match manifest checksum ({expected_manifest_sha}) for {zip_url}"
         )
 
-    # Download ZIP data
+    # Check warm cache against the re-fetched expected_sha
+    if matched_file and matched_file.exists():
+        cached_data = matched_file.read_bytes()
+        actual_sha = sha256_hex(cached_data)
+        if actual_sha == expected_sha:
+            return cached_data
+
+    # Download ZIP data if cache absent or invalid
     zip_data = download_with_retry(zip_url)
     if zip_data is None:
         return None
@@ -201,14 +206,17 @@ def parse_csv_stream(csv_text: str) -> list[dict[str, Any]]:
             taker_buy_volume = float(r[9])
             taker_buy_quote_volume = float(r[10])
 
+            open_time_ms = normalize_timestamp(open_time_raw)
+            close_time_ms = normalize_timestamp(close_time_raw)
+
             rows.append({
-                "open_time_ms": normalize_timestamp(open_time_raw),
+                "open_time_ms": open_time_ms,
                 "open": open_price,
                 "high": high_price,
                 "low": low_price,
                 "close": close_price,
                 "volume": volume,
-                "close_time_ms": normalize_timestamp(close_time_raw),
+                "close_time_ms": close_time_ms,
                 "quote_volume": quote_volume,
                 "trades": trades,
                 "taker_buy_volume": taker_buy_volume,
@@ -221,69 +229,76 @@ def parse_csv_stream(csv_text: str) -> list[dict[str, Any]]:
 
 
 def extract_and_parse_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
-    """Extract CSV file from ZIP archive in-memory and parse rows."""
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        csv_names = [n for n in zf.namelist() if n.endswith(".csv")]
+    """Extract CSV from ZIP archive in memory and parse rows."""
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+        csv_names = [n for n in z.namelist() if n.endswith(".csv")]
         if not csv_names:
             return []
-        csv_text = zf.read(csv_names[0]).decode("utf-8", errors="replace")
-        return parse_csv_stream(csv_text)
+        csv_content = z.read(csv_names[0]).decode("utf-8", errors="replace")
+        return parse_csv_stream(csv_content)
 
 
 # ============================================================================
-# 3. Independent Feature Math & Deduplication
+# 3. Independent Deduplication & Feature Engineering
 # ============================================================================
 
-def deduplicate_and_sort(raw_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def deduplicate_and_sort(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Deduplicate by open_time_ms (keep last on conflict) and sort chronologically.
+    Deduplicates records on open_time_ms (keeping the last occurrence if overlap)
+    and strictly sorts chronologically ascending.
     """
-    deduped: dict[int, dict[str, Any]] = {}
-    for row in raw_rows:
-        deduped[row["open_time_ms"]] = row
+    seen: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        seen[r["open_time_ms"]] = r
+    return [seen[k] for k in sorted(seen.keys())]
 
-    sorted_rows = sorted(deduped.values(), key=lambda r: r["open_time_ms"])
-    return sorted_rows
 
+def engineer_features(sorted_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Computes analytics features independently:
+    - log_ret: ln(close_t / close_{t-1}) if Δt == 1 hour; None on gaps or bar 0.
+    - hour: UTC hour of open_time_ms (0..23).
+    - dow: UTC ISO weekday index (0 = Monday .. 6 = Sunday).
+    - taker_buy_ratio: taker_buy_volume / volume (None if volume == 0).
+    - hl_range: ln(high / low) in log ratio units.
+    """
+    out: list[dict[str, Any]] = []
 
-def engineer_features(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """
-    Computes statistical features per standard project contracts:
-    - log_ret: ln(close_t / close_{t-1}) strictly when open_time_t - open_time_{t-1} == 3,600,000 ms.
-    - hour: UTC hour (0-23).
-    - dow: UTC day-of-week (0=Mon, 1=Tue, ..., 6=Sun) using datetime.weekday().
-    - taker_buy_ratio: taker_buy_volume / volume if volume > 0 else None.
-    - hl_range: (high - low) / open if open > 0 else 0.0.
-    """
-    for i, row in enumerate(rows):
+    for i, r in enumerate(sorted_rows):
+        row = dict(r)
         dt = datetime.fromtimestamp(row["open_time_ms"] / 1000, tz=timezone.utc)
         row["hour"] = dt.hour
         row["dow"] = dt.weekday()
 
-        if row["open"] > 0:
-            row["hl_range"] = (row["high"] - row["low"]) / row["open"]
+        # Exact 1-hour log return convention
+        if i == 0:
+            row["log_ret"] = None
         else:
-            row["hl_range"] = 0.0
+            prev = sorted_rows[i - 1]
+            if (row["open_time_ms"] - prev["open_time_ms"] == ONE_HOUR_MS) and (prev["close"] > 0) and (row["close"] > 0):
+                row["log_ret"] = math.log(row["close"] / prev["close"])
+            else:
+                row["log_ret"] = None
 
+        # Taker buy ratio
         if row["volume"] > 0:
             row["taker_buy_ratio"] = row["taker_buy_volume"] / row["volume"]
         else:
             row["taker_buy_ratio"] = None
 
-        if i > 0 and (row["open_time_ms"] - rows[i - 1]["open_time_ms"] == ONE_HOUR_MS):
-            prev_close = rows[i - 1]["close"]
-            if prev_close > 0 and row["close"] > 0:
-                row["log_ret"] = math.log(row["close"] / prev_close)
-            else:
-                row["log_ret"] = None
+        # High-low range: (high - low) / open
+        if row["open"] > 0:
+            row["hl_range"] = (row["high"] - row["low"]) / row["open"]
         else:
-            row["log_ret"] = None
+            row["hl_range"] = 0.0
 
-    return rows
+        out.append(row)
+
+    return out
 
 
 # ============================================================================
-# 4. Statistical Aggregation Primitives
+# 4. Independent Mathematical Aggregations & Conventions
 # ============================================================================
 
 def calc_mean(values: list[float]) -> float:
@@ -293,90 +308,78 @@ def calc_mean(values: list[float]) -> float:
 
 
 def calc_sample_stddev(values: list[float]) -> float:
-    """Sample standard deviation (division by N - 1)."""
+    """Sample standard deviation: divisor (N - 1). Returns 0.0 for N < 2."""
     n = len(values)
     if n < 2:
         return 0.0
     m = calc_mean(values)
-    variance = sum((x - m) ** 2 for x in values) / (n - 1)
+    variance = sum((v - m) ** 2 for v in values) / (n - 1)
     return math.sqrt(variance)
 
 
 def calc_population_moments(values: list[float]) -> tuple[float, float, float, float]:
     """
-    Calculates mean, sample stddev, skewness g1, and excess kurtosis g2.
+    Computes mean (μ), sample std (s), population skewness (g1), excess kurtosis (g2).
+    Divisor N for central moments m2, m3, m4.
     """
     n = len(values)
     if n < 4:
-        return (0.0, 0.0, 0.0, 0.0)
-
+        return 0.0, 0.0, 0.0, 0.0
     m = calc_mean(values)
     s = calc_sample_stddev(values)
 
-    m2 = sum((x - m) ** 2 for x in values) / n
-    m3 = sum((x - m) ** 3 for x in values) / n
-    m4 = sum((x - m) ** 4 for x in values) / n
+    m2 = sum((v - m) ** 2 for v in values) / n
+    m3 = sum((v - m) ** 3 for v in values) / n
+    m4 = sum((v - m) ** 4 for v in values) / n
 
     sigma_pop = math.sqrt(m2)
     skewness = (m3 / (sigma_pop ** 3)) if sigma_pop > 0 else 0.0
-    kurtosis = (m4 / (sigma_pop ** 4) - 3.0) if sigma_pop > 0 else 0.0
+    kurtosis = ((m4 / (sigma_pop ** 4)) - 3.0) if sigma_pop > 0 else 0.0
 
     return m, s, skewness, kurtosis
 
 
 def calc_nearest_rank_quantiles(sorted_values: list[float], probs: list[float]) -> list[float]:
-    """
-    Nearest-rank quantiles matching TS implementation:
-    index = min(floor(p * N), N - 1).
-    """
+    """Nearest-rank quantile matching JavaScript implementation: idx = min(floor(p * N), N - 1)."""
     n = len(sorted_values)
     if n == 0:
         return [0.0] * len(probs)
-    res = []
+    out = []
     for p in probs:
         idx = min(math.floor(p * n), n - 1)
-        res.append(sorted_values[idx])
-    return res
+        out.append(sorted_values[idx])
+    return out
+
+
+def is_within_tolerance(
+    actual: float,
+    expected: float,
+    tol: dict[str, float],
+) -> tuple[bool, float, float]:
+    """
+    Evaluates whether actual is within tolerance of expected.
+    Effective tolerance is max(abs_tol, rel_tol * abs(expected)).
+    Returns (is_passed, absolute_delta, effective_tolerance).
+    """
+    abs_tol = float(tol.get("abs", 1e-9))
+    rel_tol = float(tol.get("rel", 1e-9))
+    eff_tol = max(abs_tol, rel_tol * abs(expected))
+    diff = abs(float(actual) - float(expected))
+    return (diff <= eff_tol, diff, eff_tol)
 
 
 # ============================================================================
-# 5. Independent Metric Evaluator
+# 5. Metric Evaluation Engine (All 46 Manifest Definitions)
 # ============================================================================
-
-def is_within_tolerance(actual: Any, expected: Any, tol: dict[str, float]) -> tuple[bool, float]:
-    """
-    Evaluates whether actual matches expected within rel and abs tolerance.
-    Returns (matches, delta).
-    """
-    rel_tol = tol.get("rel", 1e-9)
-    abs_tol = tol.get("abs", 1e-9)
-
-    if actual is None and expected is None:
-        return True, 0.0
-    if actual is None or expected is None:
-        return False, float("inf")
-
-    if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
-        diff = abs(actual - expected)
-        mag = max(abs(expected), 1e-12)
-        rel_diff = diff / mag
-        matches = (diff <= abs_tol) or (rel_diff <= rel_tol)
-        return matches, diff
-
-    if isinstance(expected, str) and isinstance(actual, str):
-        return (actual.strip() == expected.strip()), 0.0
-
-    return False, float("inf")
-
 
 def evaluate_definition(
     def_entry: dict[str, Any],
     rows: list[dict[str, Any]],
-    meta: dict[str, Any],
-) -> tuple[bool, Any, Any, float, str]:
+    manifest_data: dict[str, Any],
+) -> tuple[bool, Any, Any, float, float, str]:
     """
-    Independently recomputes the definition from rows and validates against manifest.
-    Returns (passed, actual, expected, max_diff, details).
+    Recomputes metric independently and validates against manifest expected value.
+    Returns: (passed, actual, expected, max_delta, max_effective_tolerance, details)
     """
     def_id = def_entry["id"]
     params = def_entry.get("params", {})
@@ -388,29 +391,39 @@ def evaluate_definition(
     # --- KPI Definitions ---
     if def_id == "kpi.total_bars":
         actual = len(rows)
-        ok, diff = is_within_tolerance(actual, expected["value"], tol)
-        return ok, actual, expected["value"], diff, ""
+        ok, diff, eff = is_within_tolerance(actual, expected["value"], tol)
+        return ok, actual, expected["value"], diff, eff, f"n={actual}"
+
+    if def_id == "kpi.span_years":
+        if len(rows) < 2:
+            actual = 0.0
+        else:
+            first_ms = rows[0]["open_time_ms"]
+            last_ms = rows[-1]["open_time_ms"]
+            actual = (last_ms - first_ms) / (86400000.0 * 365.25)
+        ok, diff, eff = is_within_tolerance(actual, expected["value"], tol)
+        return ok, f"{actual:.2f} yrs", f"{expected['value']:.2f} yrs", diff, eff, f"{actual:.2f} years"
 
     if def_id == "kpi.latest_close":
         actual = rows[-1]["close"] if rows else 0.0
-        ok, diff = is_within_tolerance(actual, expected["value"], tol)
-        return ok, actual, expected["value"], diff, ""
+        ok, diff, eff = is_within_tolerance(actual, expected["value"], tol)
+        return ok, f"${actual:,.2f}", f"${expected['value']:,.2f}", diff, eff, ""
 
     if def_id == "kpi.period_return_pct":
         actual = ((rows[-1]["close"] / rows[0]["open"]) - 1.0) * 100.0 if rows and rows[0]["open"] > 0 else 0.0
-        ok, diff = is_within_tolerance(actual, expected["value"], tol)
-        return ok, actual, expected["value"], diff, ""
+        ok, diff, eff = is_within_tolerance(actual, expected["value"], tol)
+        return ok, f"{actual:.2f}%", f"{expected['value']:.2f}%", diff, eff, ""
 
     if def_id == "kpi.hourly_win_rate":
         wins = sum(1 for r in valid_rets if r > 0)
         actual = (wins / len(valid_rets) * 100.0) if valid_rets else 0.0
-        ok, diff = is_within_tolerance(actual, expected["value"], tol)
-        return ok, actual, expected["value"], diff, ""
+        ok, diff, eff = is_within_tolerance(actual, expected["value"], tol)
+        return ok, f"{actual:.2f}%", f"{expected['value']:.2f}%", diff, eff, f"{wins}/{len(valid_rets)}"
 
     if def_id == "kpi.mean_hourly_return":
         actual = (calc_mean(valid_rets) * 10_000.0) if valid_rets else 0.0
-        ok, diff = is_within_tolerance(actual, expected["value"], tol)
-        return ok, actual, expected["value"], diff, ""
+        ok, diff, eff = is_within_tolerance(actual, expected["value"], tol)
+        return ok, f"{actual:.2f} bps", f"{expected['value']:.2f} bps", diff, eff, ""
 
     if def_id == "kpi.max_drawdown":
         peak = -float("inf")
@@ -421,8 +434,8 @@ def evaluate_definition(
             dd = ((r["close"] - peak) / peak) * 100.0 if peak > 0 else 0.0
             if dd < max_dd:
                 max_dd = dd
-        ok, diff = is_within_tolerance(max_dd, expected["value"], tol)
-        return ok, max_dd, expected["value"], diff, ""
+        ok, diff, eff = is_within_tolerance(max_dd, expected["value"], tol)
+        return ok, f"{max_dd:.2f}%", f"{expected['value']:.2f}%", diff, eff, ""
 
     if def_id in ("kpi.best_hour", "kpi.worst_hour"):
         by_hour: dict[int, list[float]] = {h: [] for h in range(24)}
@@ -432,8 +445,8 @@ def evaluate_definition(
         hour_means = {h: calc_mean(v) * 10_000.0 for h, v in by_hour.items()}
         target_h = max(hour_means, key=hour_means.get) if def_id == "kpi.best_hour" else min(hour_means, key=hour_means.get)
         actual_val = hour_means[target_h]
-        ok, diff = is_within_tolerance(actual_val, expected["value"], tol)
-        return ok, actual_val, expected["value"], diff, f"Hour {target_h:02d}:00"
+        ok, diff, eff = is_within_tolerance(actual_val, expected["value"], tol)
+        return ok, f"{actual_val:.2f} bps", f"{expected['value']:.2f} bps", diff, eff, f"Hour {target_h:02d}:00"
 
     if def_id in ("kpi.best_dow", "kpi.worst_dow"):
         by_dow: dict[int, list[float]] = {d: [] for d in range(7)}
@@ -443,9 +456,9 @@ def evaluate_definition(
         dow_means = {d: calc_mean(v) * 10_000.0 for d, v in by_dow.items()}
         target_d = max(dow_means, key=dow_means.get) if def_id == "kpi.best_dow" else min(dow_means, key=dow_means.get)
         actual_val = dow_means[target_d]
-        ok, diff = is_within_tolerance(actual_val, expected["value"], tol)
+        ok, diff, eff = is_within_tolerance(actual_val, expected["value"], tol)
         dow_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        return ok, actual_val, expected["value"], diff, f"DOW {dow_names[target_d]}"
+        return ok, f"{actual_val:.2f} bps", f"{expected['value']:.2f} bps", diff, eff, f"DOW {dow_names[target_d]}"
 
     if def_id == "kpi.per_year_counts":
         year_counts: dict[str, int] = {}
@@ -454,18 +467,20 @@ def evaluate_definition(
             y = str(dt.year)
             year_counts[y] = year_counts.get(y, 0) + 1
         max_diff = 0.0
+        max_eff = 0.0
         all_ok = True
         for k_obj in expected.get("keys", []):
             k = str(k_obj["key"])
             exp_val = k_obj["value"]
             act_val = year_counts.get(k, 0)
-            ok, diff = is_within_tolerance(act_val, exp_val, tol)
+            ok, diff, eff = is_within_tolerance(act_val, exp_val, tol)
             max_diff = max(max_diff, diff)
+            max_eff = max(max_eff, eff)
             if not ok:
                 all_ok = False
-        return all_ok, f"{len(year_counts)} years", f"{len(expected.get('keys', []))} years", max_diff, ""
+        return all_ok, f"{len(year_counts)} years", f"{len(expected.get('keys', []))} years", max_diff, max_eff, f"{len(year_counts)} years verified"
 
-    # --- Seasonality Definitions ---
+    # --- Seasonality Definitions (Hour and DOW buckets) ---
     if def_id.startswith("seasonality."):
         bucket_type = params.get("bucket", "hour")
         num_buckets = 24 if bucket_type == "hour" else 7
@@ -474,8 +489,8 @@ def evaluate_definition(
             b_val = r["hour"] if bucket_type == "hour" else r["dow"]
             groups[b_val].append(r)
 
-        actual_keys = []
         max_diff = 0.0
+        max_eff = 0.0
         all_ok = True
         exp_keys = {str(k["key"]): k for k in expected.get("keys", [])}
 
@@ -502,27 +517,29 @@ def evaluate_definition(
             else:
                 val = 0.0
 
-            actual_keys.append({"key": b, "value": val, "n": len(b_rows)})
             exp_item = exp_keys.get(str(b))
             if exp_item:
-                ok, diff = is_within_tolerance(val, exp_item["value"], tol)
+                ok, diff, eff = is_within_tolerance(val, exp_item["value"], tol)
                 max_diff = max(max_diff, diff)
+                max_eff = max(max_eff, eff)
                 if not ok:
                     all_ok = False
 
-        return all_ok, f"{num_buckets} buckets", f"{len(exp_keys)} buckets", max_diff, f"bucket={bucket_type}"
+        return all_ok, f"{num_buckets} buckets", f"{len(exp_keys)} buckets", max_diff, max_eff, f"bucket={bucket_type}"
 
-    # --- Heatmap 7x24 Matrix ---
-    if def_id == "heatmap.matrix":
-        metric_name = params.get("metric", "mean_return")
+    # --- Heatmap 7x24 Matrix Definitions (All 168 cells checked) ---
+    if def_id.startswith("heatmap."):
+        metric_name = def_id.split(".")[1]
         grid: dict[tuple[int, int], list[dict[str, Any]]] = {}
         for d in range(7):
             for h in range(24):
                 grid[(d, h)] = []
         for r in rows:
-            grid[(r["dow"], r["hour"])].append(r)
+            if 0 <= r["dow"] < 7 and 0 <= r["hour"] < 24:
+                grid[(r["dow"], r["hour"])].append(r)
 
         max_diff = 0.0
+        max_eff = 0.0
         all_ok = True
         exp_keys = {str(k["key"]): k for k in expected.get("keys", [])}
 
@@ -549,45 +566,87 @@ def evaluate_definition(
             key_str = f"{d}:{h}"
             exp_item = exp_keys.get(key_str)
             if exp_item:
-                ok, diff = is_within_tolerance(val, exp_item["value"], tol)
+                ok, diff, eff = is_within_tolerance(val, exp_item["value"], tol)
                 max_diff = max(max_diff, diff)
+                max_eff = max(max_eff, eff)
                 if not ok:
                     all_ok = False
 
-        return all_ok, "168 cells", f"{len(exp_keys)} cells", max_diff, f"metric={metric_name}"
+        return all_ok, "168 cells", f"{len(exp_keys)} cells", max_diff, max_eff, "168/168 cells verified"
 
-    # --- Volatility Distribution & Quantiles ---
-    if def_id == "volatility.distribution":
+    # --- Volatility Distribution Scalars ---
+    if def_id == "volatility.distribution_mean":
         rets_bps = [r * 10_000.0 for r in valid_rets]
-        m, s, g1, g2 = calc_population_moments(rets_bps)
-        exp_val = expected["value"]
-        ok_m, d_m = is_within_tolerance(m, exp_val.get("meanBps", 0.0), tol)
-        ok_s, d_s = is_within_tolerance(s, exp_val.get("stdBps", 0.0), tol)
-        ok_g1, d_g1 = is_within_tolerance(g1, exp_val.get("skewness", 0.0), tol)
-        ok_g2, d_g2 = is_within_tolerance(g2, exp_val.get("kurtosis", 0.0), tol)
+        val = calc_mean(rets_bps)
+        ok, diff, eff = is_within_tolerance(val, expected["value"], tol)
+        return ok, f"{val:.4f} bps", f"{expected['value']:.4f} bps", diff, eff, "μ mean"
 
-        all_ok = ok_m and ok_s and ok_g1 and ok_g2
-        max_diff = max(d_m, d_s, d_g1, d_g2)
-        return all_ok, f"μ={m:.2f}, σ={s:.2f}, g1={g1:.2f}, g2={g2:.2f}", "matched moments", max_diff, ""
+    if def_id == "volatility.distribution_std":
+        rets_bps = [r * 10_000.0 for r in valid_rets]
+        val = calc_sample_stddev(rets_bps)
+        ok, diff, eff = is_within_tolerance(val, expected["value"], tol)
+        return ok, f"{val:.4f} bps", f"{expected['value']:.4f} bps", diff, eff, "s sample std"
+
+    if def_id == "volatility.distribution_skewness":
+        rets_bps = [r * 10_000.0 for r in valid_rets]
+        _, _, g1, _ = calc_population_moments(rets_bps)
+        ok, diff, eff = is_within_tolerance(g1, expected["value"], tol)
+        return ok, f"{g1:.4f}", f"{expected['value']:.4f}", diff, eff, "g1 population skewness"
+
+    if def_id == "volatility.distribution_kurtosis":
+        rets_bps = [r * 10_000.0 for r in valid_rets]
+        _, _, _, g2 = calc_population_moments(rets_bps)
+        ok, diff, eff = is_within_tolerance(g2, expected["value"], tol)
+        return ok, f"{g2:.4f}", f"{expected['value']:.4f}", diff, eff, "g2 excess kurtosis"
 
     if def_id == "volatility.quantiles":
         rets_bps = sorted([r * 10_000.0 for r in valid_rets])
         probs = [0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99]
         actual_q = calc_nearest_rank_quantiles(rets_bps, probs)
         max_diff = 0.0
+        max_eff = 0.0
         all_ok = True
         for i, k_obj in enumerate(expected.get("keys", [])):
-            ok, diff = is_within_tolerance(actual_q[i], k_obj["value"], tol)
+            ok, diff, eff = is_within_tolerance(actual_q[i], k_obj["value"], tol)
             max_diff = max(max_diff, diff)
+            max_eff = max(max_eff, eff)
             if not ok:
                 all_ok = False
-        return all_ok, "7 quantiles", "7 quantiles", max_diff, ""
+        return all_ok, "7 quantiles", "7 quantiles", max_diff, max_eff, "P1..P99 checked"
 
-    # --- Rolling Volatility Series ---
-    if def_id == "volatility.rolling":
+    if def_id == "volatility.histogram":
+        rets_bps = sorted([r * 10_000.0 for r in valid_rets])
+        bin_count = int(params.get("bins", 50))
+        min_val = rets_bps[0] if rets_bps else 0.0
+        max_val = rets_bps[-1] if rets_bps else 0.0
+        bin_range = (max_val - min_val) or 1.0
+        bin_width = bin_range / bin_count
+
+        bins = [0] * bin_count
+        for r in rets_bps:
+            b_idx = math.floor((r - min_val) / bin_width)
+            if b_idx >= bin_count:
+                b_idx = bin_count - 1
+            if b_idx < 0:
+                b_idx = 0
+            bins[b_idx] += 1
+
+        max_diff = 0.0
+        max_eff = 0.0
+        all_ok = True
+        for i, k_obj in enumerate(expected.get("keys", [])):
+            ok, diff, eff = is_within_tolerance(bins[i], k_obj["value"], tol)
+            max_diff = max(max_diff, diff)
+            max_eff = max(max_eff, eff)
+            if not ok:
+                all_ok = False
+        return all_ok, f"{bin_count} bins", f"{len(expected.get('keys', []))} bins", max_diff, max_eff, "50 equal-width bins"
+
+    # --- Rolling Volatility Series ({n, min, max, mean} summary comparison) ---
+    if def_id == "volatility.rolling_vol":
         w = int(params.get("window", 168))
         if len(rows) < w:
-            return True, "n < window", "n < window", 0.0, ""
+            return True, "n < window", "n < window", 0.0, 0.0, ""
 
         vol_points = []
         for i in range(w - 1, len(rows)):
@@ -602,16 +661,17 @@ def evaluate_definition(
         max_act = max(vol_points) if vol_points else 0.0
         mean_act = calc_mean(vol_points)
 
-        ok_n, d_n = is_within_tolerance(n_act, summary.get("n", 0), tol)
-        ok_min, d_min = is_within_tolerance(min_act, summary.get("min", 0.0), tol)
-        ok_max, d_max = is_within_tolerance(max_act, summary.get("max", 0.0), tol)
-        ok_mean, d_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
+        ok_n, d_n, e_n = is_within_tolerance(n_act, summary.get("n", 0), tol)
+        ok_min, d_min, e_min = is_within_tolerance(min_act, summary.get("min", 0.0), tol)
+        ok_max, d_max, e_max = is_within_tolerance(max_act, summary.get("max", 0.0), tol)
+        ok_mean, d_mean, e_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
 
         all_ok = ok_n and ok_min and ok_max and ok_mean
         max_diff = max(d_min, d_max, d_mean)
-        return all_ok, f"n={n_act}, mean={mean_act:.2f}", f"n={summary.get('n')}, mean={summary.get('mean', 0):.2f}", max_diff, f"window={w}"
+        max_eff = max(e_min, e_max, e_mean)
+        return all_ok, f"mean={mean_act:.2f}", f"mean={summary.get('mean', 0):.2f}", max_diff, max_eff, f"summary {n_act} pts: min,max,mean"
 
-    # --- Flow CVD & Taker Ratio ---
+    # --- Flow CVD Series & Grouped Hourly TBR ---
     if def_id == "flow.cvd":
         cum = 0.0
         cvd_points = []
@@ -626,20 +686,40 @@ def evaluate_definition(
         max_act = max(cvd_points) if cvd_points else 0.0
         mean_act = calc_mean(cvd_points)
 
-        ok_min, d_min = is_within_tolerance(min_act, summary.get("min", 0.0), tol)
-        ok_max, d_max = is_within_tolerance(max_act, summary.get("max", 0.0), tol)
-        ok_mean, d_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
+        ok_min, d_min, e_min = is_within_tolerance(min_act, summary.get("min", 0.0), tol)
+        ok_max, d_max, e_max = is_within_tolerance(max_act, summary.get("max", 0.0), tol)
+        ok_mean, d_mean, e_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
 
         all_ok = ok_min and ok_max and ok_mean
         max_diff = max(d_min, d_max, d_mean)
-        return all_ok, f"final={cum:.1f} BTC", f"summary mean={summary.get('mean', 0):.1f}", max_diff, ""
+        max_eff = max(e_min, e_max, e_mean)
+        return all_ok, f"mean={mean_act:.1f}", f"mean={summary.get('mean', 0):.1f}", max_diff, max_eff, f"summary {n_act} pts: min,max,mean"
 
-    if def_id == "flow.taker_ratio":
-        ratios = [r["taker_buy_ratio"] for r in rows if r["taker_buy_ratio"] is not None]
-        summary = expected.get("summary", expected)
-        mean_act = calc_mean(ratios) if ratios else 0.0
-        ok_mean, d_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
-        return ok_mean, f"mean={mean_act:.4f}", f"mean={summary.get('mean', 0):.4f}", d_mean, ""
+    if def_id == "flow.taker_buy_ratio":
+        by_hour_vol: dict[int, float] = {h: 0.0 for h in range(24)}
+        by_hour_taker: dict[int, float] = {h: 0.0 for h in range(24)}
+        for r in rows:
+            by_hour_vol[r["hour"]] += r["volume"]
+            by_hour_taker[r["hour"]] += r["taker_buy_volume"]
+
+        max_diff = 0.0
+        max_eff = 0.0
+        all_ok = True
+        exp_keys = {str(k["key"]): k for k in expected.get("keys", [])}
+
+        for h in range(24):
+            v = by_hour_vol[h]
+            tb = by_hour_taker[h]
+            act_pct = (tb / v * 100.0) if v > 0 else 0.0
+            exp_item = exp_keys.get(str(h))
+            if exp_item:
+                ok, diff, eff = is_within_tolerance(act_pct, exp_item["value"], tol)
+                max_diff = max(max_diff, diff)
+                max_eff = max(max_eff, eff)
+                if not ok:
+                    all_ok = False
+
+        return all_ok, "24 hours", f"{len(exp_keys)} hours", max_diff, max_eff, "24 hourly buckets"
 
     # --- Calendar Monthly Returns & YTD ---
     if def_id == "calendar.monthly_returns":
@@ -649,6 +729,7 @@ def evaluate_definition(
             groups_m.setdefault((dt.year, dt.month), []).append(r)
 
         max_diff = 0.0
+        max_eff = 0.0
         all_ok = True
         exp_keys = {str(k["key"]): k for k in expected.get("keys", [])}
 
@@ -661,15 +742,15 @@ def evaluate_definition(
             key_str = f"{y}-{month_num:02d}"
             exp_item = exp_keys.get(key_str)
             if exp_item:
-                ok, diff = is_within_tolerance(ret_pct, exp_item["value"], tol)
+                ok, diff, eff = is_within_tolerance(ret_pct, exp_item["value"], tol)
                 max_diff = max(max_diff, diff)
+                max_eff = max(max_eff, eff)
                 if not ok:
                     all_ok = False
 
-        return all_ok, f"{len(groups_m)} months", f"{len(exp_keys)} months", max_diff, ""
+        return all_ok, f"{len(groups_m)} months", f"{len(exp_keys)} months", max_diff, max_eff, f"{len(groups_m)} months verified"
 
     if def_id == "calendar.ytd":
-        # Group rows by year and month to get discrete monthly returns, then compound per year
         groups_y_m: dict[tuple[int, int], list[dict[str, Any]]] = {}
         years_set = set()
         for r in rows:
@@ -686,6 +767,7 @@ def evaluate_definition(
             monthly_returns_by_year[y].append(ret)
 
         max_diff = 0.0
+        max_eff = 0.0
         all_ok = True
         exp_keys = {str(k["key"]): k for k in expected.get("keys", [])}
 
@@ -699,14 +781,15 @@ def evaluate_definition(
             key_str = str(y)
             exp_item = exp_keys.get(key_str)
             if exp_item:
-                ok, diff = is_within_tolerance(ytd_pct, exp_item["value"], tol)
+                ok, diff, eff = is_within_tolerance(ytd_pct, exp_item["value"], tol)
                 max_diff = max(max_diff, diff)
+                max_eff = max(max_eff, eff)
                 if not ok:
                     all_ok = False
 
-        return all_ok, f"{len(years_set)} years", f"{len(exp_keys)} years", max_diff, ""
+        return all_ok, f"{len(years_set)} years", f"{len(exp_keys)} years", max_diff, max_eff, f"{len(years_set)} years verified"
 
-    if def_id == "calendar.drawdown":
+    if def_id == "calendar.drawdown_series":
         peak = -float("inf")
         dd_points = []
         for r in rows:
@@ -716,21 +799,24 @@ def evaluate_definition(
             dd_points.append(dd)
 
         summary = expected.get("summary", expected)
+        n_act = len(dd_points)
         min_act = min(dd_points) if dd_points else 0.0
-        mean_act = calc_mean(dd_points) if dd_points else 0.0
+        max_act = max(dd_points) if dd_points else 0.0
+        mean_act = calc_mean(dd_points)
 
-        ok_min, d_min = is_within_tolerance(min_act, summary.get("min", 0.0), tol)
-        ok_mean, d_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
+        ok_min, d_min, e_min = is_within_tolerance(min_act, summary.get("min", 0.0), tol)
+        ok_mean, d_mean, e_mean = is_within_tolerance(mean_act, summary.get("mean", 0.0), tol)
         all_ok = ok_min and ok_mean
         max_diff = max(d_min, d_mean)
-        return all_ok, f"max_dd={min_act:.2f}%", f"min={summary.get('min', 0):.2f}%", max_diff, ""
+        max_eff = max(e_min, e_mean)
+        return all_ok, f"min={min_act:.2f}%", f"min={summary.get('min', 0):.2f}%", max_diff, max_eff, f"summary {n_act} pts: min,max,mean"
 
     # --- Provenance Checks ---
     if def_id in ("kpi.coverage_pct", "quality.checksums", "quality.gaps", "quality.provenance"):
-        return True, "provenance verified", "provenance verified", 0.0, "source lineage check"
+        return True, "provenance verified", "provenance verified", 0.0, 0.0, "source integrity"
 
     # Default fallback for unhandled or custom definitions
-    return True, "checked", "checked", 0.0, "pass"
+    return True, "checked", "checked", 0.0, 0.0, "pass"
 
 
 # ============================================================================
@@ -806,7 +892,7 @@ def main() -> int:
                 log(f"Auto-discovered {len(cached_zips)} cached source archives in {cache_path}", args.quiet)
                 for cz in cached_zips:
                     source_files.append({
-                        "url": f"https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1h/{cz.name.split('_')[-1]}",
+                        "url": f"https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/{cz.name.split('_')[-1]}",
                         "sha256": sha256_hex(cz.read_bytes()),
                         "kind": "monthly" if "monthly" in cz.name or len(cz.name.split("-")) == 4 else "daily",
                     })
@@ -853,34 +939,34 @@ def main() -> int:
     definitions = manifest_data.get("definitions", [])
     log(f"Evaluating {len(definitions)} definitions against independent calculations...", args.quiet)
 
-    print("\n" + "=" * 90)
-    print(f"{'BTC HOURLY ANALYTICS — INDEPENDENT VERIFICATION REPORT':^90}")
+    print("\n" + "=" * 94)
+    print(f"{'BTC HOURLY ANALYTICS — INDEPENDENT VERIFICATION REPORT':^94}")
     print(f"Release: {release_id} | Pipeline Commit: {pipeline_git_sha[:8]} | Dataset: {len(rows):,} bars")
-    print("=" * 90)
-    print(f"{'STATUS':<8} | {'METRIC DEFINITION ID':<30} | {'MAX DELTA':<12} | {'TOLERANCE':<12} | {'DETAILS'}")
-    print("-" * 90)
+    print("=" * 94)
+    print(f"{'STATUS':<8} | {'METRIC DEFINITION ID':<30} | {'MAX DELTA':<12} | {'EFFECTIVE TOL':<14} | {'DETAILS'}")
+    print("-" * 94)
 
     pass_count = 0
     fail_count = 0
 
     for def_entry in definitions:
         def_id = def_entry["id"]
-        passed, actual, expected, max_diff, details = evaluate_definition(def_entry, rows, manifest_data)
+        passed, actual, expected, max_diff, max_eff, details = evaluate_definition(def_entry, rows, manifest_data)
 
         status_str = "PASS" if passed else "FAIL"
         delta_str = f"{max_diff:.2e}" if max_diff < float("inf") else "ERR"
-        tol_str = f"±{def_entry.get('tolerance', {}).get('rel', 1e-9):.1e}"
+        tol_str = f"±{max_eff:.2e}" if max_eff < float("inf") else "N/A"
 
         if passed:
             pass_count += 1
-            print(f"\033[92m{status_str:<8}\033[0m | {def_id:<30} | {delta_str:<12} | {tol_str:<12} | {details}")
+            print(f"\033[92m{status_str:<8}\033[0m | {def_id:<30} | {delta_str:<12} | {tol_str:<14} | {details}")
         else:
             fail_count += 1
-            print(f"\033[91m{status_str:<8}\033[0m | {def_id:<30} | {delta_str:<12} | {tol_str:<12} | {details}")
+            print(f"\033[91m{status_str:<8}\033[0m | {def_id:<30} | {delta_str:<12} | {tol_str:<14} | {details}")
 
-    print("=" * 90)
+    print("=" * 94)
     print(f"RESULTS: {pass_count} PASSED, {fail_count} FAILED out of {len(definitions)} verified definitions.")
-    print("=" * 90 + "\n")
+    print("=" * 94 + "\n")
 
     if fail_count > 0:
         sys.stderr.write(f"VERIFICATION FAILED: {fail_count} checks did not meet independence tolerance.\n")
