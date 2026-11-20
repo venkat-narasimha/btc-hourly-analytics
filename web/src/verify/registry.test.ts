@@ -3,6 +3,7 @@ import {
   getAllMetricDefs,
   getMetricDef,
 } from './registry';
+import { computeMetric, getLogReturns, mean } from '../stats/aggregations';
 import type { KlineRow, Meta, QualityReport } from '../types';
 
 function createMockRows(count = 200): KlineRow[] {
@@ -78,7 +79,7 @@ const mockQuality: QualityReport = {
 describe('Metric Registry (Phase A)', () => {
   it('registers all required inventory items', () => {
     const allDefs = getAllMetricDefs();
-    expect(allDefs.length).toBeGreaterThanOrEqual(25);
+    expect(allDefs.length).toBe(40);
 
     const requiredIds = [
       'kpi.total_bars',
@@ -169,6 +170,26 @@ describe('Metric Registry (Phase A)', () => {
     const dowDef = getMetricDef('seasonality.mean_return.dow');
     expect(dowDef).toBeDefined();
     expect(dowDef?.id).toBe('seasonality.mean_return');
+  });
+
+  it('delegation-guard: strictly matches direct aggregations function results', () => {
+    const rows = createMockRows(200);
+
+    const winRateDef = getMetricDef('kpi.hourly_win_rate')!;
+    const winRateResult = winRateDef.compute(rows);
+    expect(winRateResult.kind).toBe('scalar');
+    if (winRateResult.kind === 'scalar') {
+      const directWinRate = computeMetric(rows, 'win_rate').value;
+      expect(winRateResult.value).toBe(directWinRate);
+    }
+
+    const meanRetDef = getMetricDef('kpi.mean_hourly_return')!;
+    const meanRetResult = meanRetDef.compute(rows);
+    expect(meanRetResult.kind).toBe('scalar');
+    if (meanRetResult.kind === 'scalar') {
+      const directMeanBps = mean(getLogReturns(rows)) * 10000;
+      expect(meanRetResult.value).toBe(directMeanBps);
+    }
   });
 
   it('matches snapshot per metric definition', () => {

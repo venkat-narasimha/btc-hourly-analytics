@@ -10,6 +10,7 @@
 
 import type { KlineRow, Meta, QualityReport, SeasonalityMetric } from '../types';
 import {
+  computeMetric,
   computeSeasonality,
   DOW_LABELS,
   getLogReturns,
@@ -463,15 +464,14 @@ registerMetricDef({
   conventions: ['null log_ret excluded from denominator', 'strictly positive return count'],
   paramsSchema: {},
   compute: (rows) => {
+    const metricRes = computeMetric(rows, 'win_rate');
     const rets = getLogReturns(rows);
-    if (rets.length === 0) return { kind: 'scalar', value: 0, n: 0, trace: { win_count: 0, total_valid: 0 } };
     const wins = rets.filter((r) => r > 0).length;
-    const wr = (wins / rets.length) * 100;
     return {
       kind: 'scalar',
-      value: wr,
-      n: rets.length,
-      trace: { win_count: wins, loss_count: rets.length - wins, total_valid: rets.length, win_rate: wr },
+      value: metricRes.value,
+      n: metricRes.n,
+      trace: { win_count: wins, loss_count: rets.length - wins, total_valid: rets.length, win_rate: metricRes.value },
     };
   },
   tolerance: DEFAULT_TOLERANCE,
@@ -489,13 +489,13 @@ registerMetricDef({
   compute: (rows) => {
     const rets = getLogReturns(rows);
     if (rets.length === 0) return { kind: 'scalar', value: 0, n: 0, trace: { sum_ret: 0 } };
+    const meanBps = mean(rets) * 10000;
     const sum = rets.reduce((a, b) => a + b, 0);
-    const meanVal = (sum / rets.length) * 10000;
     return {
       kind: 'scalar',
-      value: meanVal,
+      value: meanBps,
       n: rets.length,
-      trace: { sum_log_ret: sum, valid_bars: rets.length, mean_bps: meanVal },
+      trace: { sum_log_ret: sum, valid_bars: rets.length, mean_bps: meanBps },
     };
   },
   tolerance: DEFAULT_TOLERANCE,

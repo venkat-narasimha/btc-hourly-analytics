@@ -41,12 +41,7 @@ export function createHeatmapView(
             <option value="taker_buy_ratio">Taker Buy Ratio</option>
             <option value="mean_hl_range">Mean H-L Range (bps)</option>
           </select>
-          ${renderInfoTooltip({
-            title: 'Heatmap Metric Aggregation',
-            description: 'Computes the specified summary statistic across all samples sharing the same (Day of Week, Hour of Day) coordinate.',
-            formula: 'Cell(d, h) = Metric({ Bars where Day=d and Hour=h })',
-            position: 'bottom',
-          })}
+          <span id="heatmap-selector-tooltip"></span>
         </div>
         <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
           ~350–360 observations per cell · beware multiple testing & noise · returns in UTC
@@ -95,6 +90,17 @@ export function createHeatmapView(
     const colors = getChartTheme(currentTheme);
     const cells = computeHeatmap(currentData, currentMetric);
     const metricInfo = METRIC_INFO[currentMetric];
+
+    const selectorTooltipEl = container.querySelector('#heatmap-selector-tooltip') as HTMLElement;
+    if (selectorTooltipEl) {
+      selectorTooltipEl.innerHTML = renderInfoTooltip({
+        defId: `heatmap.${currentMetric}`,
+        metric: currentMetric,
+        title: `Heatmap Metric: ${metricInfo.label}`,
+        description: `Computes ${metricInfo.label} across all historical bars matching (Day of Week, Hour of Day).`,
+        position: 'bottom',
+      });
+    }
 
     if (headerActionsEl) {
       headerActionsEl.innerHTML = `
