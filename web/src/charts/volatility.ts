@@ -50,7 +50,7 @@ export function createVolatilityView(
           <div class="chart-card-header">
             <h3 class="chart-card-title" style="margin: 0;">Return Distribution (Hourly Log Returns in Basis Points)</h3>
           </div>
-          <div id="dist-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 220px;"></div>
+          <div id="dist-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px; min-height: 260px;"></div>
         </div>
 
         <div class="chart-card" style="display: flex; flex-direction: column;">
@@ -98,7 +98,7 @@ export function createVolatilityView(
           `;
         },
       },
-      grid: { left: 55, right: 20, top: 20, bottom: 25 },
+      grid: { left: 68, right: 20, top: 20, bottom: 25 },
       xAxis: {
         type: 'category',
         data: times,

@@ -5,16 +5,20 @@
 export interface FilterbarCallbacks {
   onRangeChange(startMs: number, endMs: number): void;
   onTimezoneChange(isIst: boolean): void;
+  onPresetChange?(preset: Preset | 'Custom'): void;
 }
 
 export interface FilterbarOptions {
   minMs: number;
   maxMs: number;
+  initialPreset?: Preset | 'Custom';
+  initialStartMs?: number;
+  initialEndMs?: number;
   initialIsIst?: boolean;
   showTimezone?: boolean; // default true
 }
 
-type Preset = '1M' | '3M' | '1Y' | 'All';
+export type Preset = '1M' | '3M' | '1Y' | 'All';
 
 function msToDateStr(ms: number): string {
   return new Date(ms).toISOString().substring(0, 10);
@@ -45,9 +49,15 @@ export function createFilterbar(
   const { minMs, maxMs } = options;
   const showTimezone = options.showTimezone !== false;
   const initialIsIst = options.initialIsIst ?? false;
+  const initialPreset = options.initialPreset ?? 'All';
+
+  const currentInitStartMs = options.initialStartMs ?? minMs;
+  const currentInitEndMs = options.initialEndMs ?? maxMs;
 
   const minDateStr = msToDateStr(minMs);
   const maxDateStr = msToDateStr(maxMs);
+  const startValStr = msToDateStr(currentInitStartMs);
+  const endValStr = msToDateStr(currentInitEndMs);
 
   const tzHtml = showTimezone ? `
     <div class="filterbar-sep"></div>
@@ -60,25 +70,25 @@ export function createFilterbar(
   container.innerHTML = `
     <div class="filterbar">
       <div class="preset-chips">
-        <button class="preset-chip" data-preset="1M">1M</button>
-        <button class="preset-chip" data-preset="3M">3M</button>
-        <button class="preset-chip" data-preset="1Y">1Y</button>
-        <button class="preset-chip active" data-preset="All">All</button>
+        <button class="preset-chip${initialPreset === '1M' ? ' active' : ''}" data-preset="1M">1M</button>
+        <button class="preset-chip${initialPreset === '3M' ? ' active' : ''}" data-preset="3M">3M</button>
+        <button class="preset-chip${initialPreset === '1Y' ? ' active' : ''}" data-preset="1Y">1Y</button>
+        <button class="preset-chip${initialPreset === 'All' ? ' active' : ''}" data-preset="All">All</button>
       </div>
       <div class="filterbar-sep"></div>
       <div class="date-range-group">
         <span class="date-range-label">From</span>
-        <input type="date" class="date-input" id="filterbar-start-date" value="${minDateStr}" min="${minDateStr}" max="${maxDateStr}" />
+        <input type="date" class="date-input" id="filterbar-start-date" value="${startValStr}" min="${minDateStr}" max="${maxDateStr}" />
         <span class="date-range-arrow">→</span>
-        <input type="date" class="date-input" id="filterbar-end-date" value="${maxDateStr}" min="${minDateStr}" max="${maxDateStr}" />
+        <input type="date" class="date-input" id="filterbar-end-date" value="${endValStr}" min="${minDateStr}" max="${maxDateStr}" />
       </div>
       ${tzHtml}
     </div>
   `;
 
   // State
-  let currentStartMs = minMs;
-  let currentEndMs = maxMs;
+  let currentStartMs = currentInitStartMs;
+  let currentEndMs = currentInitEndMs;
 
   const presetChips = container.querySelectorAll<HTMLButtonElement>('.preset-chip');
   const startDateInput = container.querySelector<HTMLInputElement>('#filterbar-start-date')!;
@@ -91,6 +101,7 @@ export function createFilterbar(
     currentEndMs = endMs;
     startDateInput.value = msToDateStr(startMs);
     endDateInput.value = msToDateStr(endMs);
+    callbacks.onPresetChange?.(preset);
     callbacks.onRangeChange(startMs, endMs);
   }
 
@@ -107,6 +118,7 @@ export function createFilterbar(
     if (!isNaN(s) && !isNaN(e) && s <= e) {
       currentStartMs = s;
       currentEndMs = e;
+      callbacks.onPresetChange?.('Custom');
       callbacks.onRangeChange(s, e);
     }
   }

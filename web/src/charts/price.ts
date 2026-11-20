@@ -46,8 +46,8 @@ export function createPriceChart(
 
   // Chart container layout
   container.innerHTML = `
-    <div class="page-wrapper tab-enter price-chart-wrapper" style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;">
-      <div class="chart-card-header price-chart-toolbar" style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border);">
+    <div class="price-chart-wrapper" style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 540px; flex: 1;">
+      <div class="chart-card-header price-chart-toolbar" style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;">
         <label class="toggle-control" style="font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px;">
           <input type="checkbox" id="log-scale-checkbox" ${isLogScale ? 'checked' : ''} />
           <span>Log Scale</span>
@@ -56,7 +56,7 @@ export function createPriceChart(
           Time axis: <strong id="tz-axis-label" style="color: var(--text-primary);">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
         </span>
       </div>
-      <div class="price-chart-container" style="width: 100%; height: calc(100% - 44px); position: relative; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--chart-bg);"></div>
+      <div class="price-chart-container" style="width: 100%; flex: 1; min-height: 500px; height: 500px; position: relative; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--chart-bg);"></div>
       <div class="price-chart-tooltip" style="position: absolute; top: 48px; left: 16px; z-index: 10; pointer-events: none; font-size: var(--text-xs); padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--font-mono, monospace); display: none;"></div>
     </div>
   `;
@@ -200,13 +200,13 @@ export function createPriceChart(
   const ro = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const { width, height } = entry.contentRect;
-      if (width > 0 && height > 36) {
-        chart.resize(width, height - 36);
+      if (width > 0 && height > 100) {
+        chart.resize(width, height);
         try {
           const panes = chart.panes();
           if (panes && panes.length >= 2) {
-            panes[0].setHeight((height - 36) * 0.75);
-            panes[1].setHeight((height - 36) * 0.25);
+            panes[0].setHeight(height * 0.75);
+            panes[1].setHeight(height * 0.25);
           }
         } catch {
           // ignore

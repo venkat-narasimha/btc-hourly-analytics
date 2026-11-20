@@ -40,7 +40,7 @@ export function createSeasonalityView(
   let showSessions = false;
 
   container.innerHTML = `
-    <div class="page-wrapper tab-enter seasonality-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
+    <div class="seasonality-view" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
       <div class="filterbar seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
         <div style="display: flex; gap: 12px; align-items: center;">
           <label style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
@@ -64,18 +64,18 @@ export function createSeasonalityView(
         </span>
       </div>
 
-      <div class="seasonality-charts-grid" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 16px; flex: 1; min-height: 0;">
-        <div class="chart-card" style="display: flex; flex-direction: column; min-height: 0;">
+      <div class="seasonality-charts-grid" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+        <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
             <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Hour of Day (UTC)</h3>
           </div>
-          <div id="hour-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 0;"></div>
+          <div id="hour-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
         </div>
-        <div class="chart-card" style="display: flex; flex-direction: column; min-height: 0;">
+        <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
             <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Day of Week (UTC)</h3>
           </div>
-          <div id="dow-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 0;"></div>
+          <div id="dow-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
         </div>
       </div>
     </div>

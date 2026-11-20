@@ -15,7 +15,7 @@ import { fetchKlines, fetchMeta, fetchQualityReport, filterByRange } from './dat
 import { getInitialTheme, saveTheme } from './ui/theme';
 import { createSidebar } from './ui/sidebar';
 import { createTopbar, type TopbarStats } from './ui/topbar';
-import { createFilterbar } from './ui/filterbar';
+import { createFilterbar, type Preset } from './ui/filterbar';
 import { createOverviewPage } from './ui/overview';
 import { renderQualityReport } from './ui/quality';
 import {
@@ -24,11 +24,11 @@ import {
   renderQualitySkeleton,
 } from './ui/skeleton';
 import { createPriceChart, type PriceChartInstance } from './charts/price';
-import { createSeasonalityView, type SeasonalityChartInstance } from './charts/seasonality';
-import { createHeatmapView, type HeatmapChartInstance } from './charts/heatmap';
-import { createVolatilityView, type VolatilityViewInstance } from './charts/volatility';
-import { createFlowView, type FlowViewInstance } from './charts/flow';
-import { createCalendarView, type CalendarViewInstance } from './charts/calendar';
+import { createSeasonalityView } from './charts/seasonality';
+import { createHeatmapView } from './charts/heatmap';
+import { createVolatilityView } from './charts/volatility';
+import { createFlowView } from './charts/flow';
+import { createCalendarView } from './charts/calendar';
 
 const PAGE_INFO: Record<TabId, { title: string; subtitle: string; numCharts?: number }> = {
   overview: {
@@ -79,6 +79,9 @@ let qualityData: QualityReport | null = null;
 
 let activeTab: TabId = 'overview';
 let isIst = false;
+let currentPreset: Preset | 'Custom' = 'All';
+let currentStartMs = 0;
+let currentEndMs = 0;
 let currentTheme: Theme = getInitialTheme();
 
 // Apply initial theme immediately to prevent flashing
@@ -172,6 +175,46 @@ function renderPageHeader(title: string, subtitle: string): HTMLElement {
   return header;
 }
 
+function setupTabFilterbar(wrapper: HTMLElement, showTimezone = false) {
+  const fbContainer = document.createElement('div');
+  wrapper.appendChild(fbContainer);
+  createFilterbar(
+    fbContainer,
+    {
+      minMs: allData[0].open_time_ms,
+      maxMs: allData[allData.length - 1].open_time_ms,
+      initialStartMs: currentStartMs || allData[0].open_time_ms,
+      initialEndMs: currentEndMs || allData[allData.length - 1].open_time_ms,
+      initialPreset: currentPreset,
+      initialIsIst: isIst,
+      showTimezone,
+    },
+    {
+      onRangeChange: (startMs, endMs) => {
+        currentStartMs = startMs;
+        currentEndMs = endMs;
+        filteredData = filterByRange(allData, startMs, endMs);
+        if (activeChartInstance && 'updateData' in activeChartInstance) {
+          if (activeTab === 'price') {
+            (activeChartInstance as PriceChartInstance).updateData(filteredData, isIst);
+          } else {
+            (activeChartInstance as any).updateData(filteredData);
+          }
+        }
+      },
+      onTimezoneChange: (ist) => {
+        isIst = ist;
+        if (activeChartInstance && 'updateData' in activeChartInstance && activeTab === 'price') {
+          (activeChartInstance as PriceChartInstance).updateData(filteredData, isIst);
+        }
+      },
+      onPresetChange: (preset) => {
+        currentPreset = preset;
+      },
+    }
+  );
+}
+
 function mountTab(tab: TabId) {
   if (activeChartInstance) {
     activeChartInstance.destroy();
@@ -213,42 +256,15 @@ function mountTab(tab: TabId) {
         content.appendChild(wrapper);
 
         wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
-
-        // Dedicated Filterbar with Timezone toggle
-        const fbContainer = document.createElement('div');
-        wrapper.appendChild(fbContainer);
-        createFilterbar(
-          fbContainer,
-          {
-            minMs: allData[0].open_time_ms,
-            maxMs: allData[allData.length - 1].open_time_ms,
-            initialIsIst: isIst,
-            showTimezone: true,
-          },
-          {
-            onRangeChange: (startMs, endMs) => {
-              filteredData = filterByRange(allData, startMs, endMs);
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as PriceChartInstance).updateData(filteredData, isIst);
-              }
-            },
-            onTimezoneChange: (ist) => {
-              isIst = ist;
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as PriceChartInstance).updateData(filteredData, isIst);
-              }
-            },
-          }
-        );
+        setupTabFilterbar(wrapper, true);
 
         // Chart Card container
         const chartCard = document.createElement('div');
         chartCard.className = 'chart-card';
-        chartCard.style.flex = '1';
         chartCard.style.display = 'flex';
         chartCard.style.flexDirection = 'column';
         chartCard.style.minHeight = '560px';
-        chartCard.style.height = 'calc(100vh - 220px)';
+        chartCard.style.height = 'calc(100vh - 230px)';
         wrapper.appendChild(chartCard);
 
         activeChartInstance = createPriceChart(chartCard, filteredData, isIst, false, currentTheme);
@@ -261,30 +277,10 @@ function mountTab(tab: TabId) {
         content.appendChild(wrapper);
 
         wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
-
-        const fbContainer = document.createElement('div');
-        wrapper.appendChild(fbContainer);
-        createFilterbar(
-          fbContainer,
-          {
-            minMs: allData[0].open_time_ms,
-            maxMs: allData[allData.length - 1].open_time_ms,
-            showTimezone: false,
-          },
-          {
-            onRangeChange: (startMs, endMs) => {
-              filteredData = filterByRange(allData, startMs, endMs);
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as SeasonalityChartInstance).updateData(filteredData);
-              }
-            },
-            onTimezoneChange: () => {},
-          }
-        );
+        setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
-        chartContainer.style.flex = '1';
-        chartContainer.style.minHeight = '0';
+        chartContainer.style.width = '100%';
         wrapper.appendChild(chartContainer);
 
         activeChartInstance = createSeasonalityView(chartContainer, filteredData, 'mean_return', currentTheme);
@@ -297,30 +293,10 @@ function mountTab(tab: TabId) {
         content.appendChild(wrapper);
 
         wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
-
-        const fbContainer = document.createElement('div');
-        wrapper.appendChild(fbContainer);
-        createFilterbar(
-          fbContainer,
-          {
-            minMs: allData[0].open_time_ms,
-            maxMs: allData[allData.length - 1].open_time_ms,
-            showTimezone: false,
-          },
-          {
-            onRangeChange: (startMs, endMs) => {
-              filteredData = filterByRange(allData, startMs, endMs);
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as HeatmapChartInstance).updateData(filteredData);
-              }
-            },
-            onTimezoneChange: () => {},
-          }
-        );
+        setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
-        chartContainer.style.flex = '1';
-        chartContainer.style.minHeight = '0';
+        chartContainer.style.width = '100%';
         wrapper.appendChild(chartContainer);
 
         activeChartInstance = createHeatmapView(chartContainer, filteredData, 'mean_return', currentTheme);
@@ -333,30 +309,10 @@ function mountTab(tab: TabId) {
         content.appendChild(wrapper);
 
         wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
-
-        const fbContainer = document.createElement('div');
-        wrapper.appendChild(fbContainer);
-        createFilterbar(
-          fbContainer,
-          {
-            minMs: allData[0].open_time_ms,
-            maxMs: allData[allData.length - 1].open_time_ms,
-            showTimezone: false,
-          },
-          {
-            onRangeChange: (startMs, endMs) => {
-              filteredData = filterByRange(allData, startMs, endMs);
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as VolatilityViewInstance).updateData(filteredData);
-              }
-            },
-            onTimezoneChange: () => {},
-          }
-        );
+        setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
-        chartContainer.style.flex = '1';
-        chartContainer.style.minHeight = '0';
+        chartContainer.style.width = '100%';
         wrapper.appendChild(chartContainer);
 
         activeChartInstance = createVolatilityView(chartContainer, filteredData, currentTheme);
@@ -369,30 +325,10 @@ function mountTab(tab: TabId) {
         content.appendChild(wrapper);
 
         wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
-
-        const fbContainer = document.createElement('div');
-        wrapper.appendChild(fbContainer);
-        createFilterbar(
-          fbContainer,
-          {
-            minMs: allData[0].open_time_ms,
-            maxMs: allData[allData.length - 1].open_time_ms,
-            showTimezone: false,
-          },
-          {
-            onRangeChange: (startMs, endMs) => {
-              filteredData = filterByRange(allData, startMs, endMs);
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as FlowViewInstance).updateData(filteredData);
-              }
-            },
-            onTimezoneChange: () => {},
-          }
-        );
+        setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
-        chartContainer.style.flex = '1';
-        chartContainer.style.minHeight = '0';
+        chartContainer.style.width = '100%';
         wrapper.appendChild(chartContainer);
 
         activeChartInstance = createFlowView(chartContainer, filteredData, currentTheme);
@@ -405,30 +341,10 @@ function mountTab(tab: TabId) {
         content.appendChild(wrapper);
 
         wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
-
-        const fbContainer = document.createElement('div');
-        wrapper.appendChild(fbContainer);
-        createFilterbar(
-          fbContainer,
-          {
-            minMs: allData[0].open_time_ms,
-            maxMs: allData[allData.length - 1].open_time_ms,
-            showTimezone: false,
-          },
-          {
-            onRangeChange: (startMs, endMs) => {
-              filteredData = filterByRange(allData, startMs, endMs);
-              if (activeChartInstance && 'updateData' in activeChartInstance) {
-                (activeChartInstance as CalendarViewInstance).updateData(filteredData);
-              }
-            },
-            onTimezoneChange: () => {},
-          }
-        );
+        setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
-        chartContainer.style.flex = '1';
-        chartContainer.style.minHeight = '0';
+        chartContainer.style.width = '100%';
         wrapper.appendChild(chartContainer);
 
         activeChartInstance = createCalendarView(chartContainer, filteredData, currentTheme);

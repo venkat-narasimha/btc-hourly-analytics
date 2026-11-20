@@ -28,7 +28,7 @@ export function createHeatmapView(
   let currentTheme: Theme = initialTheme;
 
   container.innerHTML = `
-    <div class="page-wrapper tab-enter heatmap-view" style="display: flex; flex-direction: column; height: 100%; gap: 12px;">
+    <div class="heatmap-view" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
       <div class="filterbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div class="filterbar-group" style="display: flex; gap: 12px; align-items: center;">
           <label class="filterbar-label" style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
@@ -45,12 +45,12 @@ export function createHeatmapView(
           ~350–360 observations per cell · beware multiple testing & noise · returns in UTC
         </span>
       </div>
-      <div class="chart-card" style="flex: 1; min-height: 480px; display: flex; flex-direction: column;">
+      <div class="chart-card" style="display: flex; flex-direction: column;">
         <div class="chart-card-header">
           <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">Hourly Seasonality Heatmap</h3>
           <span class="chart-card-subtitle" style="font-size: var(--text-xs); color: var(--text-muted);">Day of Week × Hour of Day (UTC)</span>
         </div>
-        <div id="heatmap-chart" class="chart-card-body no-padding" style="width: 100%; flex: 1; min-height: 440px;"></div>
+        <div id="heatmap-chart" class="chart-card-body no-padding" style="width: 100%; height: 480px; min-height: 480px;"></div>
       </div>
     </div>
   `;
@@ -82,7 +82,7 @@ export function createHeatmapView(
       calculable: true,
       orient: 'horizontal',
       left: 'center',
-      bottom: '10px',
+      bottom: '8px',
       textStyle: { color: colors.textSecondary },
     };
 
@@ -125,7 +125,7 @@ export function createHeatmapView(
           `;
         },
       },
-      grid: { top: 30, right: 30, bottom: 65, left: 60 },
+      grid: { top: 30, right: 30, bottom: 85, left: 60 },
       xAxis: {
         type: 'category',
         data: hours,

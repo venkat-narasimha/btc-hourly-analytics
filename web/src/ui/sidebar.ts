@@ -94,8 +94,8 @@ export function createSidebar(
       <div class="sidebar-theme-row">
         <span class="theme-label">Theme</span>
         <div class="theme-toggle-group">
-          <button class="theme-btn${initialTheme === 'dark' ? ' active' : ''}" data-theme-val="dark">🌙 Dark</button>
-          <button class="theme-btn${initialTheme === 'light' ? ' active' : ''}" data-theme-val="light">☀️ Light</button>
+          <button class="theme-btn${initialTheme === 'dark' ? ' active' : ''}" data-theme-val="dark" title="Dark Theme">🌙 <span class="theme-text">Dark</span></button>
+          <button class="theme-btn${initialTheme === 'light' ? ' active' : ''}" data-theme-val="light" title="Light Theme">☀️ <span class="theme-text">Light</span></button>
         </div>
       </div>
     </div>
