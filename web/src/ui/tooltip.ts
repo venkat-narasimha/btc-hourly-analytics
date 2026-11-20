@@ -80,12 +80,46 @@ export function setupTooltipInteractions(): void {
   if (isGlobalListenerAttached || typeof document === 'undefined') return;
   isGlobalListenerAttached = true;
 
+  // When hovering or focusing any tooltip, dismiss all other pinned tooltips
+  // to ensure only a single tooltip is ever visible at one time
+  document.addEventListener(
+    'mouseenter',
+    (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const hoveredTip = target?.closest?.('.info-tip') as HTMLElement | null;
+      if (hoveredTip) {
+        document.querySelectorAll('.info-tip.pinned').forEach(el => {
+          if (el !== hoveredTip) {
+            el.classList.remove('pinned');
+          }
+        });
+      }
+    },
+    true
+  );
+
+  document.addEventListener(
+    'focusin',
+    (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      const focusedTip = target?.closest?.('.info-tip') as HTMLElement | null;
+      if (focusedTip) {
+        document.querySelectorAll('.info-tip.pinned').forEach(el => {
+          if (el !== focusedTip) {
+            el.classList.remove('pinned');
+          }
+        });
+      }
+    },
+    true
+  );
+
   document.addEventListener('click', (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     const clickedTip = target?.closest('.info-tip') as HTMLElement | null;
 
     if (clickedTip) {
-      // Toggle pinned state on the clicked tip
+      // Toggle pinned state on the clicked tip, unpinning all others
       const isPinned = clickedTip.classList.contains('pinned');
       document.querySelectorAll('.info-tip.pinned').forEach(el => el.classList.remove('pinned'));
       if (!isPinned) {
