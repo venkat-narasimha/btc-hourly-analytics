@@ -32,6 +32,7 @@ import { createFlowView } from './charts/flow';
 import { createCalendarView } from './charts/calendar';
 import { setupInspectTriggers, openInspectDrawer } from './verify/drawer';
 import { parseProofLink } from './verify/links';
+import { verifyVisibleMetrics } from './verify/badges';
 
 const PAGE_INFO: Record<TabId, { title: string; subtitle: string; numCharts?: number }> = {
   overview: {
@@ -71,6 +72,10 @@ const PAGE_INFO: Record<TabId, { title: string; subtitle: string; numCharts?: nu
   quality: {
     title: 'Data Quality & Provenance Audit',
     subtitle: 'Full integrity audit: SHA-256 checksums, exchange outage gaps, and raw ingestion normalizations',
+  },
+  playground: {
+    title: 'Verification Playground',
+    subtitle: 'Interactive DuckDB-WASM SQL console verifying analytics directly over the release Parquet artifact',
   },
 };
 
@@ -168,15 +173,115 @@ async function loadArtifactsWithRetry(maxRetries = 30, delayMs = 3000): Promise<
   setStepDone('step-ready');
 }
 
-function renderPageHeader(title: string, subtitle: string): HTMLElement {
+const TAB_VERIFIABLE_DEFS: Partial<Record<TabId, Array<{ defId: string; params?: Record<string, any> }>>> = {
+  seasonality: [
+    { defId: 'seasonality.mean_return' },
+    { defId: 'seasonality.volatility' },
+    { defId: 'seasonality.win_rate' },
+    { defId: 'seasonality.total_volume' },
+    { defId: 'seasonality.taker_buy_ratio' },
+    { defId: 'seasonality.mean_hl_range' },
+  ],
+  heatmap: [
+    { defId: 'heatmap.mean_return' },
+    { defId: 'heatmap.volatility' },
+    { defId: 'heatmap.win_rate' },
+    { defId: 'heatmap.total_volume' },
+    { defId: 'heatmap.taker_buy_ratio' },
+    { defId: 'heatmap.mean_hl_range' },
+  ],
+  volatility: [
+    { defId: 'volatility.rolling_vol' },
+    { defId: 'volatility.distribution_mean' },
+    { defId: 'volatility.distribution_std' },
+    { defId: 'volatility.distribution_skewness' },
+    { defId: 'volatility.distribution_kurtosis' },
+    { defId: 'volatility.quantiles' },
+    { defId: 'volatility.histogram' },
+  ],
+  flow: [
+    { defId: 'flow.cvd' },
+    { defId: 'flow.taker_buy_ratio' },
+  ],
+  calendar: [
+    { defId: 'calendar.monthly_returns' },
+    { defId: 'calendar.ytd' },
+    { defId: 'calendar.drawdown_series' },
+  ],
+};
+
+function renderPageHeader(title: string, subtitle: string, tabId?: TabId): HTMLElement {
   const header = document.createElement('div');
   header.className = 'page-header';
+  header.style.display = 'flex';
+  header.style.justifyContent = 'space-between';
+  header.style.alignItems = 'flex-start';
+  header.style.flexWrap = 'wrap';
+  header.style.gap = '12px';
+
+  const verifiable = tabId ? TAB_VERIFIABLE_DEFS[tabId] : undefined;
+
   header.innerHTML = `
     <div class="page-header-left">
       <h2 class="page-title">${title}</h2>
       <p class="page-subtitle">${subtitle}</p>
     </div>
+    ${
+      verifiable
+        ? `
+      <div>
+        <button type="button" class="btn btn-secondary btn-sm btn-verify-tab" style="display: flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <ellipse cx="8" cy="4" rx="6" ry="2.5" />
+            <path d="M2 4v8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V4" />
+            <path d="M2 8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5" />
+          </svg>
+          <span class="btn-verify-tab-text">Verify Tab (DuckDB)</span>
+        </button>
+      </div>
+    `
+        : ''
+    }
   `;
+
+  if (verifiable) {
+    const btn = header.querySelector('.btn-verify-tab') as HTMLButtonElement;
+    const btnText = header.querySelector('.btn-verify-tab-text') as HTMLElement;
+    btn?.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+
+      const defsWithParams = verifiable.map((d) => ({
+        defId: d.defId,
+        params: {
+          startMs: currentStartMs,
+          endMs: currentEndMs,
+          ...d.params,
+        },
+      }));
+
+      try {
+        const results = await verifyVisibleMetrics(
+          defsWithParams,
+          filteredData,
+          { meta: metaData, qualityData },
+          (done, total) => {
+            if (btnText) btnText.textContent = `Verifying (${done}/${total})...`;
+          }
+        );
+
+        const matches = results.filter((r) => r.status === 'match').length;
+        if (btnText) btnText.textContent = `✓ ${matches}/${results.length} Verified`;
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+      } catch {
+        if (btnText) btnText.textContent = 'Verification Failed';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   return header;
 }
 
@@ -239,6 +344,8 @@ function mountTab(tab: TabId) {
     renderOverviewSkeleton(content);
   } else if (tab === 'quality') {
     renderQualitySkeleton(content);
+  } else if (tab === 'playground') {
+    content.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">Initializing Playground...</div>';
   } else {
     renderChartPageSkeleton(content, pageMeta.numCharts ?? 1);
   }
@@ -281,7 +388,7 @@ function mountTab(tab: TabId) {
         wrapper.className = 'page-wrapper tab-enter';
         content.appendChild(wrapper);
 
-        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
+        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle, tab));
         setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
@@ -297,7 +404,7 @@ function mountTab(tab: TabId) {
         wrapper.className = 'page-wrapper tab-enter';
         content.appendChild(wrapper);
 
-        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
+        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle, tab));
         setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
@@ -313,7 +420,7 @@ function mountTab(tab: TabId) {
         wrapper.className = 'page-wrapper tab-enter';
         content.appendChild(wrapper);
 
-        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
+        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle, tab));
         setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
@@ -329,7 +436,7 @@ function mountTab(tab: TabId) {
         wrapper.className = 'page-wrapper tab-enter';
         content.appendChild(wrapper);
 
-        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
+        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle, tab));
         setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
@@ -345,7 +452,7 @@ function mountTab(tab: TabId) {
         wrapper.className = 'page-wrapper tab-enter';
         content.appendChild(wrapper);
 
-        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle));
+        wrapper.appendChild(renderPageHeader(pageMeta.title, pageMeta.subtitle, tab));
         setupTabFilterbar(wrapper, false);
 
         const chartContainer = document.createElement('div');
@@ -358,6 +465,23 @@ function mountTab(tab: TabId) {
 
       case 'quality': {
         renderQualityReport(content, metaData, qualityData);
+        break;
+      }
+
+      case 'playground': {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'page-wrapper tab-enter';
+        content.appendChild(wrapper);
+
+        import('./ui/playground').then(({ createPlaygroundView }) => {
+          createPlaygroundView(wrapper, () => ({
+            data: filteredData,
+            meta: metaData,
+            qualityData: qualityData,
+            startMs: currentStartMs,
+            endMs: currentEndMs,
+          }));
+        });
         break;
       }
     }
