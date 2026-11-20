@@ -30,6 +30,8 @@ import { createHeatmapView } from './charts/heatmap';
 import { createVolatilityView } from './charts/volatility';
 import { createFlowView } from './charts/flow';
 import { createCalendarView } from './charts/calendar';
+import { setupInspectTriggers, openInspectDrawer } from './verify/drawer';
+import { parseProofLink } from './verify/links';
 
 const PAGE_INFO: Record<TabId, { title: string; subtitle: string; numCharts?: number }> = {
   overview: {
@@ -428,6 +430,44 @@ async function init() {
     </div>
   `;
 
+  function handleProofLink(): boolean {
+    const proof = parseProofLink(window.location.hash);
+    if (!proof) return false;
+
+    if (proof.tab && proof.tab in PAGE_INFO) {
+      activeTab = proof.tab as TabId;
+      sidebarInstance?.setActiveTab(activeTab);
+    }
+
+    if (proof.start && proof.end && allData.length > 0) {
+      currentStartMs = proof.start;
+      currentEndMs = proof.end;
+      currentPreset = 'Custom';
+      filteredData = filterByRange(allData, currentStartMs, currentEndMs);
+    }
+
+    mountTab(activeTab);
+
+    if (proof.defId) {
+      openInspectDrawer({
+        defId: proof.defId,
+        data: filteredData,
+        meta: metaData,
+        qualityData,
+        currentTab: activeTab,
+        metric: proof.metric,
+        bucket: proof.bucket,
+        target: proof.target,
+        window: proof.window,
+        startMs: currentStartMs,
+        endMs: currentEndMs,
+        proofReleaseId: proof.release_id,
+      });
+    }
+
+    return true;
+  }
+
   try {
     // 6. Ingest data
     await loadArtifactsWithRetry();
@@ -435,8 +475,24 @@ async function init() {
     // 7. Update telemetry header
     topbarInstance.updateStats(buildTopbarStats());
 
-    // 8. Mount default Overview page
-    mountTab('overview');
+    // 8. Attach inspect triggers & handle proof links
+    setupInspectTriggers(() => ({
+      data: filteredData,
+      meta: metaData,
+      qualityData,
+      currentTab: activeTab,
+      startMs: currentStartMs,
+      endMs: currentEndMs,
+    }));
+
+    window.addEventListener('hashchange', () => {
+      handleProofLink();
+    });
+
+    const restored = handleProofLink();
+    if (!restored) {
+      mountTab('overview');
+    }
   } catch (err: any) {
     mainContent.innerHTML = `
       <div class="loading-screen">

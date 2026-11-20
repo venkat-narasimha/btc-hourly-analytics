@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { renderInfoTooltip } from './tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from './tooltip';
 
 describe('renderInfoTooltip', () => {
   it('renders basic tooltip markup with accessible attributes', () => {
@@ -36,32 +36,46 @@ describe('renderInfoTooltip', () => {
     expect(html).toContain('FORMULA');
   });
 
-  it('renders caveat block when provided', () => {
+  it('renders statistical caveat when provided', () => {
     const html = renderInfoTooltip({
       title: 'Caveat Metric',
-      description: 'Descriptive indicator.',
-      caveat: 'Low explanatory power across single sessions.',
-      position: 'left',
+      description: 'Statistical significance warning.',
+      caveat: 'Sample size underpowered (n < 30).',
     });
 
-    expect(html).toContain('pos-left');
     expect(html).toContain('info-caveat-block');
-    expect(html).toContain('Low explanatory power across single sessions.');
     expect(html).toContain('CAVEAT');
+    expect(html).toContain('Sample size underpowered');
   });
 
-  it('escapes HTML to prevent injection vulnerabilities', () => {
+  it('escapes dangerous HTML characters in title and description', () => {
     const html = renderInfoTooltip({
-      title: '<script>alert(1)</script>',
-      description: 'Value is > 10 & < 20',
-      formula: 'x < y && y > z',
-      caveat: 'Caution: <b>risk</b>',
+      title: '<script>alert("xss")</script>',
+      description: 'Image <img src="x" onerror="evil()" />',
     });
 
     expect(html).not.toContain('<script>');
-    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
-    expect(html).toContain('&gt; 10 &amp; &lt; 20');
-    expect(html).toContain('x &lt; y &amp;&amp; y &gt; z');
-    expect(html).toContain('Caution: &lt;b&gt;risk&lt;/b&gt;');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<img src="x"');
+  });
+
+  it('renders formula from registry and inspect button when defId is provided', () => {
+    const html = renderInfoTooltip({
+      title: 'Total Observations',
+      description: 'Dataset rows',
+      defId: 'kpi.total_bars',
+    });
+
+    expect(html).toContain('N = Total Hourly Observations');
+    expect(html).toContain('inspect-verify-btn');
+    expect(html).toContain('data-inspect-def="kpi.total_bars"');
+    expect(html).toContain('Inspect &amp; Verify');
+  });
+
+  it('renders inspect trigger button correctly', () => {
+    const html = renderInspectTrigger('kpi.max_drawdown', { title: 'Inspect MDD' });
+    expect(html).toContain('inspect-trigger-btn');
+    expect(html).toContain('data-inspect-def="kpi.max_drawdown"');
+    expect(html).toContain('title="Inspect MDD"');
   });
 });

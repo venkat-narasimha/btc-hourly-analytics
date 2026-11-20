@@ -14,7 +14,7 @@ import {
   computeRollingVolatility,
 } from '../stats/analytics';
 import { getChartTheme } from '../ui/theme';
-import { renderInfoTooltip } from '../ui/tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from '../ui/tooltip';
 
 export interface VolatilityViewInstance {
   updateData(data: KlineRow[]): void;
@@ -36,15 +36,18 @@ export function createVolatilityView(
       <!-- Rolling Volatility Section -->
       <div class="chart-card" style="display: flex; flex-direction: column;">
         <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 class="chart-card-title" style="margin: 0;">
-            Rolling Volatility (σ of Hourly Log Returns)
+          <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+            <span>Rolling Volatility (σ of Hourly Log Returns)</span>
             ${renderInfoTooltip({
+              defId: 'volatility.rolling_vol',
               title: 'Rolling Historical Volatility',
               description: 'Sample standard deviation of hourly log returns computed over an backward sliding window of W hours.',
-              formula: 'σ_t = √[ Σ(r_i − r̄)² / (W − 1) ] × 10,000 bps',
               caveat: 'Backward-looking window creates visual lag. Sudden volatility spikes appear wider than true duration.',
               position: 'bottom',
             })}
+            <span id="rolling-inspect-wrap">
+              ${renderInspectTrigger('volatility.rolling_vol', { window: currentWindow, title: 'Inspect Rolling Volatility' })}
+            </span>
           </h3>
           <div style="display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: var(--text-secondary);">
             <span>Window: <strong id="window-val-label" class="text-info" style="color: var(--color-info);">168h (7d)</strong></span>
@@ -63,15 +66,16 @@ export function createVolatilityView(
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; flex: 1; min-height: 280px;">
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="margin: 0;">
-              Return Distribution (Hourly Log Returns in Basis Points)
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Return Distribution (Hourly Log Returns in Basis Points)</span>
               ${renderInfoTooltip({
+                defId: 'volatility.histogram',
                 title: 'Empirical Return Distribution',
                 description: 'Histogram of discrete hourly log returns partitioned into 50 equal-width bins spanning the observed range.',
-                formula: 'r_t = ln(Close_t / Close_t-1) × 10,000 bps',
                 caveat: 'Non-Gaussian Leptokurtosis: Crypto returns feature heavy tails; standard normal assumptions drastically underestimate risk.',
                 position: 'bottom',
               })}
+              ${renderInspectTrigger('volatility.histogram', { title: 'Inspect Distribution Histogram' })}
             </h3>
           </div>
           <div id="dist-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px; min-height: 260px;"></div>
@@ -79,15 +83,16 @@ export function createVolatilityView(
 
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="margin: 0;">
-              Distribution Moments & Risk
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Distribution Moments &amp; Risk</span>
               ${renderInfoTooltip({
+                defId: 'volatility.distribution_std',
                 title: 'Higher-Order Statistical Moments & Quantiles',
                 description: 'Descriptive metrics quantifying central location, dispersion, skewness, excess kurtosis, and empirical quantile loss cutoffs.',
-                formula: 'Skewness = m₃ / s³,   Excess Kurtosis = (m₄ / s⁴) − 3',
                 caveat: 'Kurtosis > 3 implies fat tails where extreme multi-sigma flash crashes or short squeezes happen much more frequently than normal theory predicts.',
                 position: 'left',
               })}
+              ${renderInspectTrigger('volatility.distribution_std', { title: 'Inspect Moments & Quantiles' })}
             </h3>
           </div>
           <div id="dist-stats-panel" class="chart-card-body" style="font-size: var(--text-sm); display: flex; flex-direction: column; gap: 4px; overflow-y: auto;">
@@ -215,23 +220,38 @@ export function createVolatilityView(
     }, true);
 
     statsPanelEl.innerHTML = `
-      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary);">Mean Return</span>
+      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
+        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
+          <span>Mean Return</span>
+          ${renderInspectTrigger('volatility.distribution_mean', { title: 'Inspect Mean Return' })}
+        </span>
         <strong style="color: var(--text-primary); font-family: var(--font-mono, monospace);">${stats.meanBps.toFixed(2)} bps</strong>
       </div>
-      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary);">Std Dev (σ)</span>
+      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
+        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
+          <span>Std Dev (σ)</span>
+          ${renderInspectTrigger('volatility.distribution_std', { title: 'Inspect Sample Std Dev' })}
+        </span>
         <strong style="color: var(--text-primary); font-family: var(--font-mono, monospace);">${stats.stdBps.toFixed(2)} bps</strong>
       </div>
-      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary);">Skewness</span>
+      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
+        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
+          <span>Skewness</span>
+          ${renderInspectTrigger('volatility.distribution_skewness', { title: 'Inspect Skewness' })}
+        </span>
         <strong style="color: ${stats.skewness >= 0 ? 'var(--color-positive)' : 'var(--color-warning)'}; font-family: var(--font-mono, monospace);">${stats.skewness.toFixed(3)}</strong>
       </div>
-      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary);">Excess Kurtosis</span>
+      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
+        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
+          <span>Excess Kurtosis</span>
+          ${renderInspectTrigger('volatility.distribution_kurtosis', { title: 'Inspect Kurtosis' })}
+        </span>
         <strong style="color: var(--color-info); font-family: var(--font-mono, monospace);">${stats.kurtosis.toFixed(2)}${stats.kurtosis > 0 ? ' (Fat tails)' : ''}</strong>
       </div>
-      <div style="margin-top: 8px; font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Quantiles (bps)</div>
+      <div style="margin-top: 8px; font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
+        <span>Quantiles (bps)</span>
+        ${renderInspectTrigger('volatility.quantiles', { title: 'Inspect Empirical Quantiles' })}
+      </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: var(--text-xs);">
         <div style="display: flex; justify-content: space-between;"><span>p1:</span> <strong style="color:var(--color-negative)">${stats.quantiles.p1.toFixed(1)}</strong></div>
         <div style="display: flex; justify-content: space-between;"><span>p99:</span> <strong style="color:var(--color-positive)">${stats.quantiles.p99.toFixed(1)}</strong></div>
@@ -246,11 +266,19 @@ export function createVolatilityView(
     `;
   }
 
+  const rollingInspectWrap = container.querySelector('#rolling-inspect-wrap') as HTMLElement;
+
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   slider.addEventListener('input', () => {
     currentWindow = Number(slider.value);
     const days = Math.round(currentWindow / 24);
     windowLabel.textContent = `${currentWindow}h (${days}d)`;
+    if (rollingInspectWrap) {
+      rollingInspectWrap.innerHTML = renderInspectTrigger('volatility.rolling_vol', {
+        window: currentWindow,
+        title: 'Inspect Rolling Volatility',
+      });
+    }
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       renderRollingVol();

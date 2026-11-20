@@ -8,12 +8,19 @@
  * - Keyboard accessibility (tabindex + focus)
  */
 
+import { getMetricDef } from '../verify/registry';
+
 export interface TooltipInfo {
   title: string;
   description: string;
   formula?: string;
   caveat?: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
+  defId?: string;
+  bucket?: string;
+  metric?: string;
+  target?: string;
+  window?: number;
 }
 
 /**
@@ -28,16 +35,54 @@ function escapeHtml(str: string): string {
 }
 
 /**
+ * Renders an inspect trigger icon button.
+ */
+export function renderInspectTrigger(
+  defId: string,
+  options?: {
+    bucket?: string;
+    metric?: string;
+    target?: string;
+    window?: number;
+    title?: string;
+  }
+): string {
+  const title = options?.title ?? 'Inspect & Verify';
+  const bucketAttr = options?.bucket ? ` data-inspect-bucket="${escapeHtml(options.bucket)}"` : '';
+  const metricAttr = options?.metric ? ` data-inspect-metric="${escapeHtml(options.metric)}"` : '';
+  const targetAttr = options?.target ? ` data-inspect-target="${escapeHtml(options.target)}"` : '';
+  const windowAttr = options?.window ? ` data-inspect-window="${options.window}"` : '';
+
+  return `
+    <button type="button" class="inspect-trigger-btn" data-inspect-def="${escapeHtml(defId)}"${bucketAttr}${metricAttr}${targetAttr}${windowAttr} aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}">
+      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="7" cy="7" r="4.5" />
+        <line x1="10.5" y1="10.5" x2="14" y2="14" />
+      </svg>
+    </button>
+  `;
+}
+
+/**
  * Renders an info icon ("i") with an embedded floating popover.
+ * If defId is provided, formula is derived from registry and an "Inspect & Verify" button is added.
  */
 export function renderInfoTooltip(info: TooltipInfo): string {
   const pos = info.position ?? 'top';
 
-  const formulaHtml = info.formula
+  let formula = info.formula;
+  if (!formula && info.defId) {
+    const def = getMetricDef(info.defId);
+    if (def) {
+      formula = def.formula;
+    }
+  }
+
+  const formulaHtml = formula
     ? `
       <div class="info-formula-block">
         <span class="info-section-tag">FORMULA</span>
-        <code class="info-formula">${escapeHtml(info.formula)}</code>
+        <code class="info-formula">${escapeHtml(formula)}</code>
       </div>
     `
     : '';
@@ -48,6 +93,18 @@ export function renderInfoTooltip(info: TooltipInfo): string {
         <span class="info-section-tag caveat">CAVEAT</span>
         <span class="info-caveat-text">${escapeHtml(info.caveat)}</span>
       </div>
+    `
+    : '';
+
+  const inspectBtnHtml = info.defId
+    ? `
+      <button type="button" class="inspect-verify-btn" data-inspect-def="${escapeHtml(info.defId)}"${info.bucket ? ` data-inspect-bucket="${escapeHtml(info.bucket)}"` : ''}${info.metric ? ` data-inspect-metric="${escapeHtml(info.metric)}"` : ''}${info.target ? ` data-inspect-target="${escapeHtml(info.target)}"` : ''}${info.window ? ` data-inspect-window="${info.window}"` : ''}>
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="7" cy="7" r="4.5" />
+          <line x1="10.5" y1="10.5" x2="14" y2="14" />
+        </svg>
+        Inspect &amp; Verify
+      </button>
     `
     : '';
 
@@ -65,6 +122,7 @@ export function renderInfoTooltip(info: TooltipInfo): string {
         <span class="info-description">${escapeHtml(info.description)}</span>
         ${formulaHtml}
         ${caveatHtml}
+        ${inspectBtnHtml}
       </span>
     </span>
   `;
@@ -116,6 +174,13 @@ export function setupTooltipInteractions(): void {
 
   document.addEventListener('click', (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
+    const verifyBtn = target?.closest('.inspect-verify-btn') as HTMLElement | null;
+    if (verifyBtn) {
+      // Unpin immediately so tooltip popover closes without stacked overlays
+      document.querySelectorAll('.info-tip.pinned').forEach(el => el.classList.remove('pinned'));
+      return;
+    }
+
     const clickedTip = target?.closest('.info-tip') as HTMLElement | null;
 
     if (clickedTip) {

@@ -8,7 +8,7 @@ import type { KlineRow, Meta, QualityReport } from '../types';
 import { computeSeasonality, DOW_LABELS } from '../stats/aggregations';
 import { computeDrawdownSeries } from '../stats/analytics';
 import { formatSignedBps } from '../stats/display';
-import { renderInfoTooltip } from './tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from './tooltip';
 
 export function createOverviewPage(
   container: HTMLElement,
@@ -97,12 +97,13 @@ export function createOverviewPage(
           <span class="kpi-label">
             <span>Dataset Bars</span>
             ${renderInfoTooltip({
+              defId: 'kpi.total_bars',
               title: 'Dataset Observations',
               description: 'Total discrete 1-hour OHLCV candles ingested directly from Binance Vision into parquet.',
-              formula: 'N = Total Hourly Observations',
               caveat: 'Exchange downtime intervals are preserved as null returns, never forward-filled or interpolated.',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('kpi.total_bars', { title: 'Inspect Dataset Bars' })}
           </span>
           <div class="kpi-value">${totalBars.toLocaleString('en-US')}</div>
           <span class="kpi-sub">Hourly observations loaded</span>
@@ -112,11 +113,12 @@ export function createOverviewPage(
           <span class="kpi-label">
             <span>Date Range</span>
             ${renderInfoTooltip({
+              defId: 'kpi.span_years',
               title: 'Chronological Scope',
               description: 'Continuous historical range from first recorded kline open to the latest pipeline build.',
-              formula: 'Δt = Latest Bar Date − First Bar Date',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('kpi.span_years', { title: 'Inspect Date Range & Span' })}
           </span>
           <div class="kpi-value" style="font-size: var(--text-lg);">${dateRangeStr}</div>
           <span class="kpi-sub">${((data[data.length - 1].open_time_ms - data[0].open_time_ms) / (86400000 * 365.25)).toFixed(1)} years span</span>
@@ -126,12 +128,13 @@ export function createOverviewPage(
           <span class="kpi-label">
             <span>Data Coverage</span>
             ${renderInfoTooltip({
+              defId: 'kpi.coverage_pct',
               title: 'Hourly Data Coverage',
               description: 'Ratio of ingested hourly bars relative to theoretical calendar hours.',
-              formula: 'Coverage = (Actual Bars / Expected Hours) × 100%',
               caveat: 'Unrecorded hours correspond strictly to scheduled or emergency Binance maintenance windows.',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('kpi.coverage_pct', { title: 'Inspect Data Coverage' })}
           </span>
           <div class="kpi-value ${covClass}">${coveragePct.toFixed(2)}%</div>
           <span class="kpi-sub">${qualityData?.expected_hours ? (qualityData.actual_rows.toLocaleString() + ' / ' + qualityData.expected_hours.toLocaleString() + ' expected') : 'Zero synthetic data'}</span>
@@ -141,11 +144,12 @@ export function createOverviewPage(
           <span class="kpi-label">
             <span>Latest Close</span>
             ${renderInfoTooltip({
+              defId: 'kpi.latest_close',
               title: 'Latest Close & Total Return',
               description: 'Most recent hourly close price and nominal percentage change across full dataset.',
-              formula: 'Total Return = ((Latest Close − Initial Open) / Initial Open) × 100%',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('kpi.latest_close', { title: 'Inspect Latest Close' })}
           </span>
           <div class="kpi-value ${priceClass}">$${latestPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
           <span class="kpi-sub ${priceClass}">${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}% ${periodLabel}</span>
@@ -155,12 +159,13 @@ export function createOverviewPage(
           <span class="kpi-label">
             <span>Max Drawdown</span>
             ${renderInfoTooltip({
+              defId: 'kpi.max_drawdown',
               title: 'Maximum Peak-to-Trough Drawdown',
               description: 'Largest percentage drop from a prior historical high-water mark close price.',
-              formula: 'MDD = max( (Peak − Close_t) / Peak ) × 100%',
               caveat: 'Computed from hourly close points; intra-hour flash wicks may have been slightly lower.',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('kpi.max_drawdown', { title: 'Inspect Maximum Drawdown' })}
           </span>
           <div class="kpi-value negative">${maxDrawdownPct.toFixed(2)}%</div>
           <span class="kpi-sub">Peak-to-trough all-time</span>
@@ -176,12 +181,13 @@ export function createOverviewPage(
               <div class="chart-card-title">
                 Seasonality Tendencies (UTC)
                 ${renderInfoTooltip({
+                  defId: 'seasonality.mean_return',
                   title: 'Seasonality Tendencies',
                   description: 'Mean logarithmic return aggregated across UTC hours and days of the week.',
-                  formula: 'r_t = ln(Close_t / Close_t-1) × 10,000 bps',
                   caveat: 'Low R²: Diurnal tendencies are descriptive historical averages and do not represent standalone trading alpha.',
                   position: 'bottom',
                 })}
+                ${renderInspectTrigger('seasonality.mean_return', { title: 'Inspect Mean Return Seasonality' })}
               </div>
               <div class="chart-card-subtitle">Aggregated log returns · descriptive, not predictive</div>
             </div>
@@ -190,27 +196,45 @@ export function createOverviewPage(
           <div class="chart-card-body">
             <div class="overview-insights-grid">
               <div class="insight-row">
-                <span class="insight-label">Best Hour (Mean Return)</span>
+                <span class="insight-label">
+                  Best Hour (Mean Return)
+                  ${renderInspectTrigger('kpi.best_hour', { title: 'Inspect Best Hour' })}
+                </span>
                 <span class="insight-value ${bestHour.value >= 0 ? 'text-positive' : 'text-negative'}">${String(bestHour.bucket).padStart(2, '0')}:00 UTC (${formatSignedBps(bestHour.value)})</span>
               </div>
               <div class="insight-row">
-                <span class="insight-label">Worst Hour (Mean Return)</span>
+                <span class="insight-label">
+                  Worst Hour (Mean Return)
+                  ${renderInspectTrigger('kpi.worst_hour', { title: 'Inspect Worst Hour' })}
+                </span>
                 <span class="insight-value ${worstHour.value >= 0 ? 'text-positive' : 'text-negative'}">${String(worstHour.bucket).padStart(2, '0')}:00 UTC (${formatSignedBps(worstHour.value)})</span>
               </div>
               <div class="insight-row">
-                <span class="insight-label">Best Day of Week</span>
+                <span class="insight-label">
+                  Best Day of Week
+                  ${renderInspectTrigger('kpi.best_dow', { title: 'Inspect Best Day of Week' })}
+                </span>
                 <span class="insight-value ${bestDow.value >= 0 ? 'text-positive' : 'text-negative'}">${DOW_LABELS[bestDow.bucket]} (${formatSignedBps(bestDow.value)})</span>
               </div>
               <div class="insight-row">
-                <span class="insight-label">Worst Day of Week</span>
+                <span class="insight-label">
+                  Worst Day of Week
+                  ${renderInspectTrigger('kpi.worst_dow', { title: 'Inspect Worst Day of Week' })}
+                </span>
                 <span class="insight-value ${worstDow.value >= 0 ? 'text-positive' : 'text-negative'}">${DOW_LABELS[worstDow.bucket]} (${formatSignedBps(worstDow.value)})</span>
               </div>
               <div class="insight-row">
-                <span class="insight-label">Hourly Win Rate</span>
+                <span class="insight-label">
+                  Hourly Win Rate
+                  ${renderInspectTrigger('kpi.hourly_win_rate', { title: 'Inspect Hourly Win Rate' })}
+                </span>
                 <span class="insight-value text-info">${winRate.toFixed(1)}% positive bars</span>
               </div>
               <div class="insight-row">
-                <span class="insight-label">Mean Hourly Return</span>
+                <span class="insight-label">
+                  Mean Hourly Return
+                  ${renderInspectTrigger('kpi.mean_hourly_return', { title: 'Inspect Mean Hourly Return' })}
+                </span>
                 <span class="insight-value">${meanRetBps >= 0 ? '+' : ''}${meanRetBps.toFixed(2)} bps</span>
               </div>
             </div>
@@ -224,11 +248,12 @@ export function createOverviewPage(
               <div class="chart-card-title">
                 Annual Observation Counts
                 ${renderInfoTooltip({
+                  defId: 'kpi.per_year_counts',
                   title: 'Annual Expected Observations',
                   description: 'Comparison of actual recorded hourly candles against theoretical astronomical year hours.',
-                  formula: 'Hours = 24 × 365 (8,760h)  [8,784h in leap years]',
                   position: 'bottom',
                 })}
+                ${renderInspectTrigger('kpi.per_year_counts', { title: 'Inspect Annual Observation Counts' })}
               </div>
               <div class="chart-card-subtitle">Expected 8,760h per normal year, 8,784h leap year</div>
             </div>
@@ -267,14 +292,15 @@ export function createOverviewPage(
         <div class="chart-card-header">
           <div>
             <div class="chart-card-title">
-              Dataset Provenance & Statistical Methodology
+              Dataset Provenance &amp; Statistical Methodology
               ${renderInfoTooltip({
+                defId: 'quality.provenance',
                 title: 'Data Provenance & Pipeline Integrity',
                 description: 'End-to-end data lineage connecting client visualization to verified immutable Parquet release artifacts.',
-                formula: 'SHA-256(archive) == Verified Checksum',
                 caveat: 'hyparquet parses static Parquet files directly in-browser via HTTP byte-range requests without backend servers.',
                 position: 'top',
               })}
+              ${renderInspectTrigger('quality.provenance', { title: 'Inspect Dataset Provenance' })}
             </div>
             <div class="chart-card-subtitle">Fully reproducible server-side ETL pipeline with zero client-side exchange requests</div>
           </div>

@@ -9,7 +9,7 @@ import type { KlineRow, SeasonalityMetric, Theme } from '../types';
 import { computeHeatmap } from '../stats/analytics';
 import { DOW_LABELS, METRIC_INFO } from '../stats/aggregations';
 import { getChartTheme } from '../ui/theme';
-import { renderInfoTooltip } from '../ui/tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from '../ui/tooltip';
 
 export interface HeatmapChartInstance {
   updateData(data: KlineRow[]): void;
@@ -55,15 +55,9 @@ export function createHeatmapView(
       <div class="chart-card" style="display: flex; flex-direction: column;">
         <div class="chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">
-              Hourly Seasonality Heatmap
-              ${renderInfoTooltip({
-                title: '7×24 Interaction Grid (168 Cells)',
-                description: 'Full bivariate cross-tabulation mapping market behavior across all 168 hours of the trading week.',
-                formula: 'n ≈ 350 to 360 observations per cell',
-                caveat: 'Multiple Testing Hazard: Testing 168 cells simultaneously will yield seemingly significant statistical anomalies purely by chance without false discovery rate adjustments.',
-                position: 'bottom',
-              })}
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Hourly Seasonality Heatmap</span>
+              <span id="heatmap-header-actions" style="display: inline-flex; align-items: center; gap: 4px;"></span>
             </h3>
             <span class="chart-card-subtitle" style="font-size: var(--text-xs); color: var(--text-muted);">Day of Week × Hour of Day (UTC)</span>
           </div>
@@ -77,7 +71,23 @@ export function createHeatmapView(
   metricSelect.value = initialMetric;
 
   const chartEl = container.querySelector('#heatmap-chart') as HTMLElement;
+  const headerActionsEl = container.querySelector('#heatmap-header-actions') as HTMLElement;
   const chart = echarts.init(chartEl);
+
+  chart.on('click', (params: any) => {
+    if (!params.data) return;
+    const [hIdx, dIdx] = params.data;
+    container.dispatchEvent(
+      new CustomEvent('inspect-request', {
+        bubbles: true,
+        detail: {
+          defId: `heatmap.${currentMetric}`,
+          metric: currentMetric,
+          target: `${dIdx}:${hIdx}`,
+        },
+      })
+    );
+  });
 
   const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
 
@@ -85,6 +95,23 @@ export function createHeatmapView(
     const colors = getChartTheme(currentTheme);
     const cells = computeHeatmap(currentData, currentMetric);
     const metricInfo = METRIC_INFO[currentMetric];
+
+    if (headerActionsEl) {
+      headerActionsEl.innerHTML = `
+        ${renderInfoTooltip({
+          defId: `heatmap.${currentMetric}`,
+          metric: currentMetric,
+          title: `Hourly Seasonality Heatmap (${metricInfo.label})`,
+          description: `Full bivariate cross-tabulation mapping ${metricInfo.label} across all 168 hours of the trading week. Click any cell to inspect.`,
+          caveat: 'Multiple Testing Hazard: Testing 168 cells simultaneously will yield seemingly significant statistical anomalies purely by chance.',
+          position: 'bottom',
+        })}
+        ${renderInspectTrigger(`heatmap.${currentMetric}`, {
+          metric: currentMetric,
+          title: 'Inspect 7×24 Heatmap Matrix',
+        })}
+      `;
+    }
 
     // Data in format [hourIdx, dowIdx, value, n]
     const seriesData = cells.map(c => [c.hour, c.dow, Number(c.value.toFixed(2)), c.n]);

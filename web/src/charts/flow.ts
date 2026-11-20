@@ -12,7 +12,7 @@ import { computeCumulativeTakerDelta } from '../stats/analytics';
 import { computeSeasonality } from '../stats/aggregations';
 import { computeTbrAxisBounds } from '../stats/display';
 import { getChartTheme } from '../ui/theme';
-import { renderInfoTooltip } from '../ui/tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from '../ui/tooltip';
 
 export interface FlowViewInstance {
   updateData(data: KlineRow[]): void;
@@ -34,15 +34,16 @@ export function createFlowView(
       <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
         <div class="chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="margin: 0;">
-              Cumulative Taker Delta (Net Aggressive Order Flow)
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Cumulative Taker Delta (Net Aggressive Order Flow)</span>
               ${renderInfoTooltip({
+                defId: 'flow.cvd',
                 title: 'Cumulative Volume Delta (CVD)',
                 description: 'Measures running net aggressive market buying vs aggressive selling in contracts/BTC.',
-                formula: 'Δ_t = (2 × Taker Buy Vol) − Total Vol,   CVD = Σ(Δ_t)',
                 caveat: 'Taker transactions only. Passive limit order liquidity providers represent the exact equal and opposite side of every executed fill.',
                 position: 'bottom',
               })}
+              ${renderInspectTrigger('flow.cvd', { title: 'Inspect Cumulative Volume Delta' })}
             </h3>
             <div class="chart-card-subtitle text-muted">
               Formula: Σ(2 · taker_buy_volume − volume) in BTC
@@ -57,15 +58,16 @@ export function createFlowView(
       <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 240px;">
         <div class="chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="margin: 0;">
-              Hourly Taker Buy Ratio by Hour of Day (UTC)
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Hourly Taker Buy Ratio by Hour of Day (UTC)</span>
               ${renderInfoTooltip({
+                defId: 'flow.taker_buy_ratio',
                 title: 'Hourly Taker Buy Ratio (TBR)',
-                description: 'Proportion of aggregate traded volume initiated by aggressive market buy orders across each UTC hour.',
-                formula: 'TBR_h = Σ(Taker Buy Vol) / Σ(Total Vol)',
+                description: 'Proportion of aggregate traded volume initiated by aggressive market buy orders across each UTC hour. Click any bar to inspect.',
                 caveat: 'Values > 0.50 indicate aggressive taker buying. Spikes frequently align with perpetual funding rate settlement boundaries (00:00, 08:00, 16:00 UTC).',
                 position: 'bottom',
               })}
+              ${renderInspectTrigger('flow.taker_buy_ratio', { title: 'Inspect Hourly Taker Buy Ratio' })}
             </h3>
             <div class="chart-card-subtitle text-muted">
               Ratio-of-sums: Σtaker_buy_volume / Σvolume (&gt;0.50 indicates net aggressive buying)
@@ -83,6 +85,18 @@ export function createFlowView(
 
   const cumChart = echarts.init(cumChartEl);
   const hourlyChart = echarts.init(hourlyChartEl);
+
+  hourlyChart.on('click', (params: any) => {
+    container.dispatchEvent(
+      new CustomEvent('inspect-request', {
+        bubbles: true,
+        detail: {
+          defId: 'flow.taker_buy_ratio',
+          target: String(params.dataIndex),
+        },
+      })
+    );
+  });
 
   function renderCharts() {
     const colors = getChartTheme(currentTheme);

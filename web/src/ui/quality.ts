@@ -10,7 +10,7 @@
  */
 
 import type { Meta, QualityReport } from '../types';
-import { renderInfoTooltip } from './tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from './tooltip';
 
 export function renderQualityReport(
   container: HTMLElement,
@@ -66,12 +66,13 @@ export function renderQualityReport(
           <span class="kpi-label">
             <span>Hourly Coverage</span>
             ${renderInfoTooltip({
+              defId: 'kpi.coverage_pct',
               title: 'Ingestion Coverage Ratio',
               description: 'Percentage of expected calendar hours present with valid verified OHLCV bars.',
-              formula: 'Coverage = (Actual Bars / Expected Hours) × 100%',
               caveat: 'Missing bars strictly correspond to documented Binance exchange downtime.',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('kpi.coverage_pct', { title: 'Inspect Hourly Coverage' })}
           </span>
           <div class="kpi-value ${covClass}">${report.coverage_pct.toFixed(2)}%</div>
           <span class="kpi-sub font-tabular">${report.actual_rows.toLocaleString()} / ${report.expected_hours.toLocaleString()} expected hours</span>
@@ -81,11 +82,12 @@ export function renderQualityReport(
           <span class="kpi-label">
             <span>Checksum Verification</span>
             ${renderInfoTooltip({
+              defId: 'quality.checksums',
               title: 'Cryptographic Checksum Audit',
               description: 'Every monthly and daily ZIP archive downloaded from Binance Vision is validated against official SHA-256 hashes.',
-              formula: 'SHA-256(archive) == Verified Hash',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('quality.checksums', { title: 'Inspect Checksums' })}
           </span>
           <div class="kpi-value positive">${report.checksums_verified.toLocaleString()}</div>
           <span class="kpi-sub font-tabular">${report.checksums_verified.toLocaleString()} / ${totalDownloaded.toLocaleString()} archives matched (${checksumPct}%)</span>
@@ -95,11 +97,12 @@ export function renderQualityReport(
           <span class="kpi-label">
             <span>Deduplicated Bars</span>
             ${renderInfoTooltip({
+              defId: 'quality.provenance',
               title: 'Timestamp Deduplication',
               description: 'Identical open_time timestamps resolved deterministically by preferring daily archive slices over monthly files on conflict (keep="last").',
-              formula: 'Unique(open_time_ms)',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('quality.provenance', { title: 'Inspect Deduplicated Bars' })}
           </span>
           <div class="kpi-value text-info">${report.duplicates_removed}</div>
           <span class="kpi-sub font-tabular">${report.quarantined_rows.length} invalid rows quarantined</span>
@@ -109,12 +112,13 @@ export function renderQualityReport(
           <span class="kpi-label">
             <span>Zero-Volume Bars</span>
             ${renderInfoTooltip({
+              defId: 'quality.provenance',
               title: 'Zero Volume Integrity Check',
               description: 'Candles with 0.0 traded volume. Kept intact because price continuity remains unbroken.',
-              formula: 'Volume == 0.0 (Price Continuity Preserved)',
               caveat: 'Zero-volume bars typically occur during matching engine freezes or test intervals.',
               position: 'bottom',
             })}
+            ${renderInspectTrigger('quality.provenance', { title: 'Inspect Zero-Volume Bars' })}
           </span>
           <div class="kpi-value">${report.zero_volume_bars}</div>
           <span class="kpi-sub">Retained as valid market hours</span>
@@ -128,12 +132,14 @@ export function renderQualityReport(
           <div class="chart-card-header">
             <div>
               <div class="chart-card-title">
-                Ingestion & Parser Pipeline Details
+                Ingestion &amp; Parser Pipeline Details
                 ${renderInfoTooltip({
+                  defId: 'quality.provenance',
                   title: 'Ingestion Pipeline Normalizations',
                   description: 'Automated ETL handling millisecond/microsecond timestamp variants, header sniffing, and data validation.',
                   position: 'bottom',
                 })}
+                ${renderInspectTrigger('quality.provenance', { title: 'Inspect Ingestion Pipeline' })}
               </div>
               <div class="chart-card-subtitle">Normalizations handled automatically by pipeline ETL</div>
             </div>
@@ -179,11 +185,12 @@ export function renderQualityReport(
               <div class="chart-card-title">
                 Annual Observation Counts
                 ${renderInfoTooltip({
+                  defId: 'kpi.per_year_counts',
                   title: 'Annual Calendar Completeness',
                   description: 'Validation against standard leap and non-leap annual calendar hours.',
-                  formula: 'Hours = 8,760h (standard)  /  8,784h (leap)',
                   position: 'bottom',
                 })}
+                ${renderInspectTrigger('kpi.per_year_counts', { title: 'Inspect Annual Observations' })}
               </div>
               <div class="chart-card-subtitle">Expected 8,760h per regular year, 8,784h leap year</div>
             </div>
@@ -235,11 +242,13 @@ export function renderQualityReport(
               <div class="chart-card-title text-warning">
                 Recorded Exchange Outage Gaps
                 ${renderInfoTooltip({
+                  defId: 'quality.gaps',
                   title: 'Preserved Gap Discontinuities',
                   description: 'Chronological gaps where Binance matching engines halted during scheduled maintenance or unplanned connectivity dropouts.',
                   caveat: 'These gaps are intentionally NOT forward-filled to avoid injecting false low-volatility synthetic drift.',
                   position: 'bottom',
                 })}
+                ${renderInspectTrigger('quality.gaps', { title: 'Inspect Outage Gaps' })}
               </div>
               <div class="chart-card-subtitle">Consecutive bars missing from Binance Vision; log returns recorded as null</div>
             </div>

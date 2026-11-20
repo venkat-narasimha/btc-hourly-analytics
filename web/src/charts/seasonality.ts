@@ -20,7 +20,7 @@ import {
 } from '../stats/aggregations';
 import { TRADING_SESSIONS } from '../stats/analytics';
 import { getChartTheme } from '../ui/theme';
-import { renderInfoTooltip } from '../ui/tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from '../ui/tooltip';
 
 export interface SeasonalityChartInstance {
   updateData(data: KlineRow[]): void;
@@ -84,29 +84,18 @@ export function createSeasonalityView(
       <div class="seasonality-charts-grid" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">
-              Hour of Day (UTC)
-              ${renderInfoTooltip({
-                title: 'Diurnal Return Seasonality (00:00–23:00 UTC)',
-                description: 'Aggregated metric for each individual hour of the day across all historical observations.',
-                formula: 'Mean_h = (1 / N_h) × Σ(r_t for hour h)',
-                caveat: 'Diurnal patterns are descriptive and have low explanatory power on any single future trading day.',
-                position: 'bottom',
-              })}
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Hour of Day (UTC)</span>
+              <span id="hour-header-actions" style="display: inline-flex; align-items: center; gap: 4px;"></span>
             </h3>
           </div>
           <div id="hour-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
         </div>
         <div class="chart-card" style="display: flex; flex-direction: column;">
           <div class="chart-card-header">
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0;">
-              Day of Week (UTC)
-              ${renderInfoTooltip({
-                title: 'Day-of-Week Seasonality (Mon–Sun UTC)',
-                description: 'Aggregated metric for each calendar day of the week to detect weekend liquidity drain vs weekday patterns.',
-                formula: 'Mean_d = (1 / N_d) × Σ(r_t for day d)',
-                position: 'bottom',
-              })}
+            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Day of Week (UTC)</span>
+              <span id="dow-header-actions" style="display: inline-flex; align-items: center; gap: 4px;"></span>
             </h3>
           </div>
           <div id="dow-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
@@ -122,15 +111,82 @@ export function createSeasonalityView(
 
   const hourChartEl = container.querySelector('#hour-chart') as HTMLElement;
   const dowChartEl = container.querySelector('#dow-chart') as HTMLElement;
+  const hourActionsEl = container.querySelector('#hour-header-actions') as HTMLElement;
+  const dowActionsEl = container.querySelector('#dow-header-actions') as HTMLElement;
 
   const hourChart = echarts.init(hourChartEl);
   const dowChart = echarts.init(dowChartEl);
+
+  hourChart.on('click', (params: any) => {
+    container.dispatchEvent(
+      new CustomEvent('inspect-request', {
+        bubbles: true,
+        detail: {
+          defId: `seasonality.${currentMetric}`,
+          bucket: 'hour',
+          metric: currentMetric,
+          target: String(params.dataIndex),
+        },
+      })
+    );
+  });
+
+  dowChart.on('click', (params: any) => {
+    container.dispatchEvent(
+      new CustomEvent('inspect-request', {
+        bubbles: true,
+        detail: {
+          defId: `seasonality.${currentMetric}`,
+          bucket: 'dow',
+          metric: currentMetric,
+          target: String(params.dataIndex),
+        },
+      })
+    );
+  });
 
   function renderCharts() {
     const colors = getChartTheme(currentTheme);
     const hourData = computeSeasonality(currentData, 'hour', currentMetric);
     const dowData = computeSeasonality(currentData, 'dow', currentMetric);
     const metricInfo = METRIC_INFO[currentMetric];
+
+    if (hourActionsEl) {
+      hourActionsEl.innerHTML = `
+        ${renderInfoTooltip({
+          defId: `seasonality.${currentMetric}`,
+          bucket: 'hour',
+          metric: currentMetric,
+          title: `Diurnal Seasonality (${metricInfo.label})`,
+          description: `Hourly seasonality aggregation for ${metricInfo.label} across 24 UTC hours.`,
+          caveat: 'Diurnal patterns are descriptive and have low explanatory power on any single future trading day.',
+          position: 'bottom',
+        })}
+        ${renderInspectTrigger(`seasonality.${currentMetric}`, {
+          bucket: 'hour',
+          metric: currentMetric,
+          title: 'Inspect Hour Seasonality Aggregate',
+        })}
+      `;
+    }
+
+    if (dowActionsEl) {
+      dowActionsEl.innerHTML = `
+        ${renderInfoTooltip({
+          defId: `seasonality.${currentMetric}`,
+          bucket: 'dow',
+          metric: currentMetric,
+          title: `Day-of-Week Seasonality (${metricInfo.label})`,
+          description: `Day-of-week seasonality aggregation for ${metricInfo.label} across Monday–Sunday.`,
+          position: 'bottom',
+        })}
+        ${renderInspectTrigger(`seasonality.${currentMetric}`, {
+          bucket: 'dow',
+          metric: currentMetric,
+          title: 'Inspect DOW Seasonality Aggregate',
+        })}
+      `;
+    }
 
     // Hour of day chart options
     const hourX = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);

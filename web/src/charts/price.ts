@@ -25,7 +25,7 @@ import {
 } from 'lightweight-charts';
 import type { KlineRow, Theme } from '../types';
 import { getChartTheme } from '../ui/theme';
-import { renderInfoTooltip } from '../ui/tooltip';
+import { renderInfoTooltip, renderInspectTrigger } from '../ui/tooltip';
 
 export interface PriceChartInstance {
   updateData(data: KlineRow[], isIst: boolean): void;
@@ -60,7 +60,7 @@ export function createPriceChart(
           caveat: 'Essential for evaluating Bitcoin across multi-year cycle orders of magnitude without distorting early history.',
           position: 'bottom',
         })}
-        <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
           <span class="timezone-indicator" style="font-size: var(--text-xs); color: var(--color-info);">
             Time axis: <strong id="tz-axis-label" style="color: var(--text-primary);">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
           </span>
@@ -71,6 +71,7 @@ export function createPriceChart(
             caveat: 'Parquet database records remain permanently normalized to UTC epoch milliseconds.',
             position: 'left',
           })}
+          ${renderInspectTrigger('kpi.latest_close', { title: 'Inspect Dataset & Price Bars' })}
         </div>
       </div>
       <div class="price-chart-container" style="width: 100%; flex: 1; min-height: 500px; height: 500px; position: relative; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--chart-bg);"></div>
