@@ -37,3 +37,9 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Why**: Initial cold startup downloads ~100 historical Binance Vision monthly and daily archive files, which can take up to 3–5 minutes. Enforcing `service_healthy` on `web.depends_on` prematurely marked containers unhealthy and blocked Nginx from booting; the SPA already features built-in retry polling with an interactive loading stepper (`loadArtifactsWithRetry`).
 - **Alternative**: `web.depends_on` maintains service ordering (`- etl`) while web boots immediately to display loading feedback; ETL healthcheck `start_period` extended to 300s to allow complete archive downloads before evaluating container health.
 - **Impact**: Clean cold boots on fresh volumes without container restarts or premature failure states.
+
+## DEV-007: Gitignoring Build-Generated DuckDB Wasm Assets and Parity Fixtures
+- **What**: `web/public/duckdb/` (17.27 MB wasm + 0.25 MB worker) and `verification/fixtures/` (`synthetic_klines.csv`, `parity_cases.json`, `fixture.parquet`) are added to `.gitignore` and untracked from git.
+- **Why**: Binary and large generated assets should not bloat the git repository history. Both are deterministically regenerated at build and test time: `web/scripts/copy-duckdb-assets.mjs` automatically copies the DuckDB assets from `node_modules` during `npm run predev` and `npm run prebuild`, while `npm test` (vitest) regenerates `verification/fixtures/` before CI parity execution.
+- **Alternative**: Keep assets untracked in version control; rely on `npm run prebuild` and `vitest` in CI/Docker pipelines to generate them on-the-fly.
+- **Impact**: Repository stays lightweight without large binary wasm blobs. Zero impact on Docker and CI builds.

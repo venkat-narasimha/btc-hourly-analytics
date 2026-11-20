@@ -13,7 +13,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@duckdb/duckdb-wasm": "^1.28.0",
+    "@duckdb/duckdb-wasm": "1.28.0",
     "echarts": "5.5.1",
     "hyparquet": "1.33.1",
     "lightweight-charts": "5.0.5"

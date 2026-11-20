@@ -52,5 +52,15 @@ jobs:
       - name: Test (vitest)
         run: cd web && npm test -- --run
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install DuckDB for Parity Gate
+        run: pip install duckdb==1.1.3
+
+      - name: Verify Dual-Engine Parity Gate
+        run: python verification/parity_check.py
+
       - name: Build
         run: cd web && npm run build
