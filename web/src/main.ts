@@ -111,12 +111,14 @@ function buildTopbarStats(): TopbarStats {
   const firstDate = new Date(allData[0].open_time_ms);
   const lastDate = new Date(allData[allData.length - 1].open_time_ms);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const liveAgeHours = metaData?.last_open_ms ? (Date.now() - metaData.last_open_ms) / 3.6e6 : 0;
   return {
     totalBars: allData.length,
     coveragePct: qualityData?.coverage_pct ?? 100,
     dateRange: `${months[firstDate.getUTCMonth()]} ${firstDate.getUTCFullYear()} – ${months[lastDate.getUTCMonth()]} ${lastDate.getUTCFullYear()}`,
     latestPrice: allData[allData.length - 1]?.close ?? null,
     lastUpdated: metaData?.generated_at_utc ? metaData.generated_at_utc.substring(0, 10) : '',
+    isStale: liveAgeHours > 48,
   };
 }
 

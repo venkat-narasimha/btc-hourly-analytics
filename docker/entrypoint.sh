@@ -4,7 +4,6 @@ set -e
 # Ensure volume /data has permissions for appuser
 mkdir -p /data
 chown -R appuser:appuser /data 2>/dev/null || true
-chmod 777 /data 2>/dev/null || true
 
 echo "[ETL Container] Running initial synchronous ETL pipeline as appuser..."
 su -s /bin/sh appuser -c "python -m pipeline.run --out /data"

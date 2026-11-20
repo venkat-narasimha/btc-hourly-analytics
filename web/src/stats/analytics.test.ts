@@ -68,6 +68,22 @@ describe('computeRollingVolatility', () => {
     expect(res.length).toBe(11);
     expect(res[0].volBps).toBeGreaterThan(0);
   });
+
+  it('excludes null log_ret instead of zero-filling when a gap is inside the window', () => {
+    // Window of 5 bars with constant return of 0.01 except one null gap
+    // If null was zero-filled to 0, sample stddev would be > 0 (~44.7 bps).
+    // Because non-null returns within the window are all identical (0.01), sample stddev is strictly 0.
+    const rows: KlineRow[] = [
+      makeRow({ open_time_ms: 1000, log_ret: 0.01 }),
+      makeRow({ open_time_ms: 2000, log_ret: 0.01 }),
+      makeRow({ open_time_ms: 3000, log_ret: null }), // exchange outage gap
+      makeRow({ open_time_ms: 4000, log_ret: 0.01 }),
+      makeRow({ open_time_ms: 5000, log_ret: 0.01 }),
+    ];
+    const res = computeRollingVolatility(rows, 5);
+    expect(res.length).toBe(1);
+    expect(res[0].volBps).toBe(0);
+  });
 });
 
 describe('computeDistributionStats', () => {

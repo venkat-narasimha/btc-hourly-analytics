@@ -85,7 +85,7 @@ make dev
 - **Hour of Day (0–23 UTC)** and **Day of Week (Mon–Sun UTC)** aggregations.
 - **Metric Selector**:
   - *Mean Return*: In basis points ($1\text{ bps} = 0.01\%$).
-  - *Volatility ($\sigma$)*: Standard deviation of hourly log returns in bps.
+  - *Volatility ($\sigma$)*: Sample standard deviation ($\div(N-1)$) of hourly log returns in bps.
   - *Win Rate*: Share of hourly bars with positive return ($\log(c_t/c_{t-1}) > 0$).
   - *Total Volume*: Cumulative volume in BTC.
   - *Taker Buy Ratio*: Ratio of sums $\frac{\sum \text{taker\_buy\_volume}}{\sum \text{volume}}$.
@@ -103,6 +103,8 @@ make dev
   - Exchange gap intervals (never fabricated or interpolated).
   - Detected file units (ms vs $\mu$s) and sniffer header results.
   - Annual bar observation counts and pipeline Git commit SHA.
+  - Live data freshness indicator with warning states when data exceeds 48 hours lag.
+  - Atomic POSIX zero-downtime release deployment (`os.replace` + durable `fsync`).
 
 ### Tab 4: 7×24 Heatmap
 - $7 \times 24$ (Day $\times$ Hour) matrix visualising cyclical tendencies across every hour of the trading week.
@@ -110,12 +112,12 @@ make dev
 - Sample size $n$ (~350–360 observations per cell) displayed in hover tooltips.
 
 ### Tab 5: Volatility & Distribution
-- **Rolling Volatility**: Sliding window $\sigma$ (default 168 hours / 1 week, adjustable from 24h to 720h) revealing regime shifts.
+- **Rolling Volatility**: Sliding window $\sigma$ (default 168 hours / 1 week, adjustable from 24h to 720h) revealing regime shifts. Computed as sample $\sigma$ over non-null returns in each window (exchange gaps excluded, never zero-filled).
 - **Return Distribution**: 50-bin histogram of hourly returns.
 - **Higher Moments & Quantiles**:
-  - Sample mean and standard deviation.
-  - Sample skewness ($m_3 / s^3$).
-  - Excess kurtosis ($m_4 / s^4 - 3$), highlighting heavy fat-tail risks.
+  - Sample mean ($\bar{x}$) and sample standard deviation ($s$, with Bessel's correction $\div(N-1)$).
+  - Skewness: Population moment $g_1 = m_3 / \sigma_{\text{pop}}^3$ where $m_3 = \frac{1}{N}\sum (r - \bar{r})^3$ and $\sigma_{\text{pop}} = \sqrt{\frac{1}{N}\sum (r - \bar{r})^2}$.
+  - Excess Kurtosis: Population moment $g_2 = m_4 / \sigma_{\text{pop}}^4 - 3$ where $m_4 = \frac{1}{N}\sum (r - \bar{r})^4$, quantifying fat-tail risk.
   - Percentiles: p1, p5, p25, p50 (median), p75, p95, p99.
 
 ### Tab 6: Order Flow

@@ -54,7 +54,7 @@ export interface RollingVolPoint {
 
 /**
  * Compute rolling volatility (σ of log_ret in bps) over a sliding window of `windowSize` bars.
- * Ignores null log_ret.
+ * Ignores null log_ret and computes σ strictly over non-null returns within each window.
  */
 export function computeRollingVolatility(
   data: KlineRow[],
@@ -63,20 +63,21 @@ export function computeRollingVolatility(
   if (data.length < windowSize) return [];
 
   const points: RollingVolPoint[] = [];
-  const logRets: number[] = [];
 
-  for (let i = 0; i < data.length; i++) {
-    const ret = data[i].log_ret;
-    logRets.push(ret !== null ? ret : 0);
-
-    if (i >= windowSize - 1) {
-      const slice = logRets.slice(i - windowSize + 1, i + 1);
-      const sigma = stddev(slice) * 10000; // in bps
-      points.push({
-        timeMs: data[i].open_time_ms,
-        volBps: sigma,
-      });
+  for (let i = windowSize - 1; i < data.length; i++) {
+    const start = i - windowSize + 1;
+    const validRets: number[] = [];
+    for (let j = start; j <= i; j++) {
+      const ret = data[j].log_ret;
+      if (ret !== null && ret !== undefined) {
+        validRets.push(ret);
+      }
     }
+    const sigma = stddev(validRets) * 10000; // in bps (sample stddev)
+    points.push({
+      timeMs: data[i].open_time_ms,
+      volBps: sigma,
+    });
   }
   return points;
 }
@@ -108,22 +109,25 @@ export function computeDistributionStats(
   if (rets.length < 4) return null;
 
   const m = mean(rets);
-  const s = stddev(rets);
+  const s = stddev(rets); // Sample stddev (÷N-1)
 
-  // Skewness: m3 / s^3
-  // Kurtosis: m4 / s^4 - 3 (excess kurtosis)
+  // Population moments g1 (skewness) and g2 (excess kurtosis) per standard definitions
+  let m2 = 0;
   let m3 = 0;
   let m4 = 0;
   for (const r of rets) {
     const diff = r - m;
+    m2 += diff ** 2;
     m3 += diff ** 3;
     m4 += diff ** 4;
   }
+  m2 /= rets.length;
   m3 /= rets.length;
   m4 /= rets.length;
 
-  const skewness = s > 0 ? m3 / (s ** 3) : 0;
-  const kurtosis = s > 0 ? m4 / (s ** 4) - 3 : 0;
+  const sigmaPop = Math.sqrt(m2);
+  const skewness = sigmaPop > 0 ? m3 / (sigmaPop ** 3) : 0;
+  const kurtosis = sigmaPop > 0 ? m4 / (sigmaPop ** 4) - 3 : 0;
 
   // Quantiles (sorted)
   const sorted = [...rets].sort((a, b) => a - b);

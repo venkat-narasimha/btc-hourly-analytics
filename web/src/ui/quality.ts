@@ -34,6 +34,10 @@ export function renderQualityReport(
   const gapsCount = report.missing_ranges.length;
   const covClass = report.coverage_pct >= 99 ? 'positive' : report.coverage_pct >= 95 ? 'warning' : 'negative';
 
+  const liveAgeHours = (Date.now() - meta.last_open_ms) / 3.6e6;
+  const isStale = liveAgeHours > 48;
+  const freshnessText = `${liveAgeHours.toFixed(1)}h ago`;
+
   container.innerHTML = `
     <div class="page-wrapper tab-enter">
       <!-- Page Header -->
@@ -42,9 +46,14 @@ export function renderQualityReport(
           <h2 class="page-title">Data Quality & Pipeline Audit</h2>
           <p class="page-subtitle">Full verification audit of the underlying Binance Vision dataset, checksums, and anomaly boundaries</p>
         </div>
-        <span class="badge ${covClass === 'positive' ? 'badge-positive' : 'badge-warning'}">
-          ${report.coverage_pct >= 99 ? 'Institutional Grade' : 'Minor Exchange Gaps'}
-        </span>
+        <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
+          <span class="badge ${isStale ? 'badge-warning' : 'badge-positive'}" data-testid="quality-freshness-badge">
+            ${isStale ? `Stale Data (${freshnessText})` : `Fresh Data (${freshnessText})`}
+          </span>
+          <span class="badge ${covClass === 'positive' ? 'badge-positive' : 'badge-warning'}">
+            ${report.coverage_pct >= 99 ? 'Institutional Grade' : 'Minor Exchange Gaps'}
+          </span>
+        </div>
       </div>
 
       <!-- Top Metrics Banner: 4 KPI Cards -->
@@ -276,6 +285,16 @@ export function renderQualityReport(
         </div>
         <div class="chart-card-body">
           <div class="overview-insights-grid">
+            <div class="insight-row">
+              <span class="insight-label">Data Freshness (Live)</span>
+              <span class="insight-value ${isStale ? 'text-warning font-mono' : 'text-positive font-mono'}">
+                ${liveAgeHours.toFixed(1)}h lag ${isStale ? '(Warning: >48h stale)' : '(Operational normal 4.5–28.5h)'}
+              </span>
+            </div>
+            <div class="insight-row">
+              <span class="insight-label">ETL Snapshot Freshness</span>
+              <span class="insight-value font-mono">${meta.freshness_hours !== undefined ? meta.freshness_hours + 'h' : 'N/A'}</span>
+            </div>
             <div class="insight-row">
               <span class="insight-label">Release ID</span>
               <span class="insight-value font-mono">${meta.release_id}</span>

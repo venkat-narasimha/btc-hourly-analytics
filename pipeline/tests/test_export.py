@@ -3,12 +3,15 @@ Tests for pipeline.export module.
 """
 
 import json
+import os
+from pathlib import Path
 
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
 from pipeline.export import (
+    atomic_release_swap,
     cleanup_old_releases,
     df_to_parquet,
     export,
@@ -73,6 +76,8 @@ class TestWriteMeta:
         assert data["rows"] == 2
         assert data["release_id"] == "test_release"
         assert data["files_downloaded"]["monthly"] == 10
+        assert "freshness_hours" in data
+        assert isinstance(data["freshness_hours"], (int, float))
 
 
 class TestWriteQualityReport:
@@ -104,6 +109,67 @@ class TestCleanupOldReleases:
         cleanup_old_releases(releases_dir, keep=3)
         remaining = list(releases_dir.iterdir())
         assert len(remaining) == 3
+
+
+class TestAtomicReleaseSwap:
+    def test_current_never_disappears_mid_swap(self, tmp_path, monkeypatch):
+        """Verify on POSIX that current remains valid and present throughout the swap."""
+        releases_dir = tmp_path / "releases"
+        releases_dir.mkdir()
+        rel1 = releases_dir / "rel_1"
+        rel1.mkdir()
+        (rel1 / "meta.json").write_text('{"v": 1}')
+
+        rel2 = releases_dir / "rel_2"
+        rel2.mkdir()
+        (rel2 / "meta.json").write_text('{"v": 2}')
+
+        current = tmp_path / "current"
+
+        # Track existence of destination 'current' immediately before replace executes
+        current_existed_during_replace = []
+        real_replace = os.replace
+
+        def monitored_replace(src, dst):
+            current_existed_during_replace.append(Path(dst).exists())
+            # On Windows host, os.replace over a directory symlink raises WinError 5.
+            # Simulate POSIX replace behavior:
+            if Path(dst).is_symlink() or Path(dst).exists():
+                Path(dst).unlink(missing_ok=True)
+            real_replace(src, dst)
+
+        monkeypatch.setattr(os, "name", "posix")
+        monkeypatch.setattr(os, "replace", monitored_replace)
+
+        # Initial swap: creates current -> rel_1
+        atomic_release_swap(releases_dir, "rel_1", current)
+        assert current.exists()
+
+        # Swap to rel_2: must not delete/rename current beforehand
+        current_existed_during_replace.clear()
+        atomic_release_swap(releases_dir, "rel_2", current)
+
+        # Destination existed at the exact moment of atomic swap
+        assert len(current_existed_during_replace) == 1
+        assert current_existed_during_replace[0] is True
+        assert current.exists()
+        assert json.loads((current / "meta.json").read_text())["v"] == 2
+
+    def test_handles_legacy_real_directory(self, tmp_path, monkeypatch):
+        """Verify legacy real directory is safely replaced with symlink on POSIX."""
+        releases_dir = tmp_path / "releases"
+        releases_dir.mkdir()
+        rel1 = releases_dir / "rel_1"
+        rel1.mkdir()
+        (rel1 / "test.txt").write_text("hello")
+
+        current = tmp_path / "current"
+        current.mkdir()  # Legacy real directory
+        (current / "old.txt").write_text("old")
+
+        monkeypatch.setattr(os, "name", "posix")
+        atomic_release_swap(releases_dir, "rel_1", current)
+        assert current.exists()
 
 
 class TestExport:

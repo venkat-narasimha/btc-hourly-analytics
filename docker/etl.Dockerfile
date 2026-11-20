@@ -19,6 +19,10 @@ RUN curl -fsSLO "$SUPERCRONIC_URL" \
 
 WORKDIR /app
 
+# Git commit SHA build argument
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
 # Non-root user setup
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /data && \

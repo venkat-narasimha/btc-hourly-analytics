@@ -27,6 +27,7 @@ export interface Meta {
   interval: string;
   first_open_ms: number;
   last_open_ms: number;
+  freshness_hours?: number;
   rows: number;
   generated_at_utc: string;
   pipeline_git_sha: string;

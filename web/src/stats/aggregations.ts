@@ -23,11 +23,11 @@ export function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-/** Standard deviation (population). */
+/** Standard deviation (sample: ÷(N-1)). */
 export function stddev(values: number[]): number {
   if (values.length < 2) return 0;
   const m = mean(values);
-  const variance = values.reduce((sum, v) => sum + (v - m) ** 2, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + (v - m) ** 2, 0) / (values.length - 1);
   return Math.sqrt(variance);
 }
 

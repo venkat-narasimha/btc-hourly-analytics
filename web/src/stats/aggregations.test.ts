@@ -47,9 +47,9 @@ describe('mean', () => {
 });
 
 describe('stddev', () => {
-  it('computes population stddev', () => {
-    // stddev([1,2,3,4,5]) = sqrt(2) ≈ 1.4142
-    expect(stddev([1, 2, 3, 4, 5])).toBeCloseTo(Math.sqrt(2), 5);
+  it('computes sample stddev', () => {
+    // stddev([1,2,3,4,5]) = sqrt(10 / 4) = sqrt(2.5) ≈ 1.58114
+    expect(stddev([1, 2, 3, 4, 5])).toBeCloseTo(Math.sqrt(2.5), 5);
   });
 
   it('returns 0 for single value', () => {

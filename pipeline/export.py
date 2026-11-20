@@ -29,7 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_git_sha() -> str:
-    """Get current git commit SHA, or 'unknown'."""
+    """Get current git commit SHA from env or git CLI, or 'unknown'."""
+    sha = os.environ.get("GIT_SHA")
+    if sha and sha.strip() and sha != "unknown":
+        return sha.strip()
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -37,7 +40,7 @@ def get_git_sha() -> str:
             text=True,
             timeout=5,
         )
-        if result.returncode == 0:
+        if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
     except Exception:
         pass
@@ -77,15 +80,21 @@ def write_meta(
     out_path: Path,
 ) -> dict:
     """Write meta.json per §5."""
+    now_utc = datetime.now(timezone.utc)
+    last_open_ms = int(df["open_time_ms"].max())
+    last_open_dt = datetime.fromtimestamp(last_open_ms / 1000, tz=timezone.utc)
+    freshness_hours = round((now_utc - last_open_dt).total_seconds() / 3600, 1)
+
     meta = {
         "schema_version": "1.0",
         "symbol": SYMBOL,
         "market": MARKET,
         "interval": INTERVAL,
         "first_open_ms": int(df["open_time_ms"].min()),
-        "last_open_ms": int(df["open_time_ms"].max()),
+        "last_open_ms": last_open_ms,
+        "freshness_hours": freshness_hours,
         "rows": len(df),
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": now_utc.isoformat(),
         "pipeline_git_sha": get_git_sha(),
         "release_id": release_id,
         "files_downloaded": {
@@ -127,55 +136,111 @@ def write_quality_report(
     return report
 
 
+def fsync_release_dir(release_dir: Path) -> None:
+    """Flush and fsync all written files and directory metadata in release_dir."""
+    for file_path in release_dir.iterdir():
+        if file_path.is_file():
+            try:
+                with open(file_path, "rb") as f:
+                    os.fsync(f.fileno())
+            except OSError as e:
+                logger.warning(f"Failed to fsync {file_path}: {e}")
+    if hasattr(os, "O_DIRECTORY") and os.name != "nt":
+        try:
+            dir_fd = os.open(str(release_dir), os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
+
+
 def atomic_release_swap(releases_dir: Path, release_id: str, current_link: Path) -> None:
     """
     Atomically swap the 'current' symlink to point to the new release.
-    On Windows, use directory junction or just rename.
+    On POSIX, replaces the two-step rename with a single atomic os.replace(temp_symlink, current_link).
+    Handles legacy 'current' if it is a real directory (removes once, then os.replace).
+    On Windows (os.name == 'nt'), keeps the copy/directory fallback.
     """
     target = releases_dir / release_id
-
-    # On Windows, symlinks may need admin. Use junction or just write a redirect file.
-    # For cross-platform: try symlink, fallback to writing a text file.
     temp_link = current_link.parent / f"current_tmp_{release_id}"
 
-    try:
-        if temp_link.exists() or temp_link.is_symlink():
-            if temp_link.is_dir() and not temp_link.is_symlink():
-                shutil.rmtree(temp_link)
-            else:
-                temp_link.unlink()
-
-        # Try creating a symlink (or junction on Windows)
-        os.symlink(str(target), str(temp_link), target_is_directory=True)
-        # Atomic rename
-        if current_link.exists() or current_link.is_symlink():
-            # On Windows, can't atomically rename over existing symlink
-            old_link = current_link.parent / f"current_old_{release_id}"
-            if old_link.exists() or old_link.is_symlink():
-                if old_link.is_dir() and not old_link.is_symlink():
-                    shutil.rmtree(old_link)
-                else:
-                    old_link.unlink()
-            current_link.rename(old_link)
-            temp_link.rename(current_link)
-            if old_link.exists() or old_link.is_symlink():
-                if old_link.is_dir() and not old_link.is_symlink():
-                    shutil.rmtree(old_link)
-                else:
-                    old_link.unlink()
+    # Clean up any leftover temporary symlink before starting
+    if temp_link.exists() or temp_link.is_symlink():
+        if temp_link.is_dir() and not temp_link.is_symlink():
+            shutil.rmtree(temp_link)
         else:
-            temp_link.rename(current_link)
-    except OSError:
-        # Fallback: just copy the directory or use a pointer file
-        logger.warning("Symlink failed, using copy fallback for 'current'")
+            temp_link.unlink()
+
+    if os.name != "nt":
+        # POSIX implementation: single atomic os.replace
+        try:
+            # Handle legacy 'current' being a real directory (remove once before os.replace)
+            if current_link.exists() and not current_link.is_symlink() and current_link.is_dir():
+                shutil.rmtree(current_link)
+
+            # Create temporary symlink pointing to release dir
+            os.symlink(str(target), str(temp_link), target_is_directory=True)
+
+            # Single atomic replace: current_link atomically points to target without mid-swap disappearance
+            os.replace(temp_link, current_link)
+            logger.info(f"Release swapped (atomic POSIX symlink): current -> {release_id}")
+            return
+        except OSError as e:
+            logger.warning(f"POSIX atomic symlink failed: {e}, falling back to copy")
+            if temp_link.exists() or temp_link.is_symlink():
+                try:
+                    if temp_link.is_dir() and not temp_link.is_symlink():
+                        shutil.rmtree(temp_link)
+                    else:
+                        temp_link.unlink()
+                except OSError:
+                    pass
+
+    # Windows fallback (or POSIX exception fallback)
+    try:
+        try:
+            os.symlink(str(target), str(temp_link), target_is_directory=True)
+            if current_link.exists() or current_link.is_symlink():
+                old_link = current_link.parent / f"current_old_{release_id}"
+                if old_link.exists() or old_link.is_symlink():
+                    if old_link.is_dir() and not old_link.is_symlink():
+                        shutil.rmtree(old_link)
+                    else:
+                        old_link.unlink()
+                current_link.rename(old_link)
+                temp_link.rename(current_link)
+                if old_link.exists() or old_link.is_symlink():
+                    if old_link.is_dir() and not old_link.is_symlink():
+                        shutil.rmtree(old_link)
+                    else:
+                        old_link.unlink()
+            else:
+                temp_link.rename(current_link)
+            logger.info(f"Release swapped (Windows symlink): current -> {release_id}")
+            return
+        except OSError:
+            pass
+
+        # Windows directory copy fallback
+        logger.warning("Symlink unavailable, using directory copy fallback for 'current'")
         if current_link.exists():
             if current_link.is_dir() and not current_link.is_symlink():
                 shutil.rmtree(current_link)
             elif current_link.is_symlink():
                 current_link.unlink()
         shutil.copytree(str(target), str(current_link))
-
-    logger.info(f"Release swapped: current → {release_id}")
+        logger.info(f"Release swapped (Windows copy): current -> {release_id}")
+    finally:
+        if temp_link.exists() or temp_link.is_symlink():
+            try:
+                if temp_link.is_dir() and not temp_link.is_symlink():
+                    shutil.rmtree(temp_link)
+                else:
+                    temp_link.unlink()
+            except OSError:
+                pass
 
 
 def cleanup_old_releases(releases_dir: Path, keep: int = MAX_RELEASES) -> None:
@@ -219,6 +284,9 @@ def export(
         coverage, ingest_stats, quarantine_reasons, duplicates_removed,
         release_dir / "quality_report.json",
     )
+
+    # Fsync all written release files before swap
+    fsync_release_dir(release_dir)
 
     # Atomic swap
     current_link = out_dir / "current"

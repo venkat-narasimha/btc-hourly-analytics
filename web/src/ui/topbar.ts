@@ -8,6 +8,7 @@ export interface TopbarStats {
   dateRange: string;      // e.g. "Jan 2020 – Nov 2026"
   latestPrice: number | null;
   lastUpdated: string;    // e.g. "2026-11-20"
+  isStale?: boolean;
 }
 
 function formatBars(n: number): string {
@@ -35,8 +36,8 @@ function coverageClass(pct: number): string {
 }
 
 function pill(value: string, label: string, extraClass?: string): string {
-  return `<div class="topbar-stat${extraClass ? ' ' + extraClass : ''}">
-    <span class="topbar-stat-value">${value}</span>
+  return `<div class="topbar-stat">
+    <span class="topbar-stat-value${extraClass ? ' ' + extraClass : ''}">${value}</span>
     <span class="topbar-stat-label">${label}</span>
   </div>`;
 }
@@ -84,7 +85,7 @@ export function createTopbar(
         parts.push('<div class="topbar-divider"></div>');
       }
 
-      parts.push(pill(formatUpdated(stats.lastUpdated), 'REFRESHED'));
+      parts.push(pill(formatUpdated(stats.lastUpdated), 'REFRESHED', stats.isStale ? 'warning' : undefined));
 
       statsEl.innerHTML = parts.join('');
     },

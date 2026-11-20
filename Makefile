@@ -30,7 +30,7 @@ lint:
 
 # Docker compose up
 up:
-	docker-compose up --build
+	GIT_SHA=$$(git rev-parse HEAD 2>/dev/null || echo unknown) docker-compose up --build
 
 # Docker compose down
 down:

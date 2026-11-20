@@ -571,6 +571,10 @@ body {
   color: var(--color-positive);
 }
 
+.topbar-stat-value.warning {
+  color: var(--color-warning);
+}
+
 .topbar-stat-value.negative {
   color: var(--color-negative);
 }
