@@ -407,9 +407,9 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
       <!-- Section 3: Trace Intermediates -->
       <section class="inspect-section">
         <h3 class="inspect-section-title">3. Computation Trace Intermediates</h3>
-        <div class="proof-panel-card" style="background: var(--bg-surface-elevated, #161b22); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px; line-height: 1.5; font-size: var(--text-xs);">
-          <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">Live Verification Proof:</strong>
-          <span style="color: var(--text-secondary);">${escapeHtml(plainProof)}</span>
+        <div class="proof proof-panel-card" style="margin-bottom: 12px;">
+          <strong style="display: block; margin-bottom: 4px;">Live Verification Proof:</strong>
+          <span>${escapeHtml(plainProof)}</span>
         </div>
         <div class="inspect-fields-grid">
           <div class="inspect-field-row">
@@ -471,7 +471,7 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
             : `Showing ${hasTruncation ? 'first 5 and last 5 observations' : `${previewRows.length} observations`} of the exact filtered subset. All 15 columns available in RFC4180 CSV export.`}
         </p>
         ${previewRows.length === 0 ? `
-          <div class="drawer-notice-info" style="padding: 16px; margin: 8px 0; background: var(--bg-surface-elevated, #161b22); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); text-align: center; color: var(--text-muted); font-size: var(--text-xs);">
+          <div class="drawer-notice-info" style="padding: 14px; margin: 8px 0; background: var(--surface2); border: 1px dashed var(--line); border-radius: var(--r-sm); text-align: center; color: var(--muted); font-size: var(--text-xs);">
             <span>⚠️ Data gap — no exchange instances recorded during this outage window.</span>
           </div>
         ` : `

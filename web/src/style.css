@@ -81,6 +81,8 @@
   --bg-card: var(--surface);
   --bg-card-hover: var(--surface2);
   --bg-elevated: var(--surface2);
+  --bg-surface: var(--surface);
+  --bg-surface-elevated: var(--surface2);
   --bg-input: var(--surface);
 
   --border: var(--line);
@@ -167,6 +169,8 @@
   --bg-card: var(--surface);
   --bg-card-hover: var(--surface2);
   --bg-elevated: var(--surface2);
+  --bg-surface: var(--surface);
+  --bg-surface-elevated: var(--surface2);
   --bg-input: var(--surface);
 
   --border: var(--line);
