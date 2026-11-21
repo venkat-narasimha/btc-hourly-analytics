@@ -16,6 +16,7 @@ export interface InstanceScope {
   openTimeMs?: number;
   window?: number;
   binRange?: [number, number]; // [min, max]
+  isLastBin?: boolean;
   gapStartMs?: number;
   gapEndMs?: number;
 }
@@ -92,9 +93,14 @@ export function selectInstances(rows: KlineRow[], scope: InstanceScope): KlineRo
   if (domain === 'volatility') {
     if (binRange) {
       const [minVal, maxVal] = binRange;
+      const isLast = scope.isLastBin ?? false;
       return rows.filter((r) => {
-        if (r.log_ret === null) return false;
-        return r.log_ret >= minVal && r.log_ret <= maxVal;
+        if (r.log_ret === null || r.log_ret === undefined) return false;
+        const val = Math.abs(minVal) > 1 || Math.abs(maxVal) > 1 ? r.log_ret * 10000 : r.log_ret;
+        if (isLast) {
+          return val >= minVal && val <= maxVal;
+        }
+        return val >= minVal && val < maxVal;
       });
     }
     if (window !== undefined && openTimeMs !== undefined) {
@@ -105,7 +111,7 @@ export function selectInstances(rows: KlineRow[], scope: InstanceScope): KlineRo
       }
     }
     // Distribution stats use all valid returns
-    return rows.filter((r) => r.log_ret !== null);
+    return rows.filter((r) => r.log_ret !== null && r.log_ret !== undefined);
   }
 
   // 6. Flow domain
@@ -121,9 +127,13 @@ export function selectInstances(rows: KlineRow[], scope: InstanceScope): KlineRo
   // 7. Quality domain
   if (domain === 'quality') {
     if (scope.gapStartMs !== undefined && scope.gapEndMs !== undefined) {
-      return rows.filter(
-        (r) => r.open_time_ms === scope.gapStartMs || r.open_time_ms === scope.gapEndMs
-      );
+      // Return surrounding context bars: last bar before gapStart, first bar after gapEnd
+      const before = rows.filter((r) => r.open_time_ms < scope.gapStartMs!).slice(-1)[0];
+      const after = rows.find((r) => r.open_time_ms > scope.gapEndMs!);
+      const result: KlineRow[] = [];
+      if (before) result.push(before);
+      if (after) result.push(after);
+      return result;
     }
     if (year !== undefined) {
       return rows.filter((r) => new Date(r.open_time_ms).getUTCFullYear() === year);

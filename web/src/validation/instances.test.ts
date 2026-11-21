@@ -121,12 +121,40 @@ describe('Instance Selectors (instances.ts)', () => {
     expect(instances.length).toBe(48);
   });
 
-  it('selects quality gap bounding bars around missing timestamp', () => {
+  it('selects quality gap surrounding context bars (last before gapStart, first after gapEnd)', () => {
+    // Outage occurred at hours 10 and 11
     const gapStart = rows[10].open_time_ms;
-    const gapEnd = rows[12].open_time_ms;
+    const gapEnd = rows[11].open_time_ms;
     const instances = selectInstances(rows, { domain: 'quality', gapStartMs: gapStart, gapEndMs: gapEnd });
     expect(instances.length).toBe(2);
-    expect(instances[0].open_time_ms).toBe(gapStart);
-    expect(instances[1].open_time_ms).toBe(gapEnd);
+    expect(instances[0].open_time_ms).toBe(rows[9].open_time_ms); // Last bar before outage
+    expect(instances[1].open_time_ms).toBe(rows[12].open_time_ms); // First bar after recovery
+  });
+
+  it('respects histogram [min, max) binning and last-bin inclusive boundary semantics', () => {
+    const customRows: KlineRow[] = [
+      { ...rows[0], open_time_ms: 1000, log_ret: 0.0010 }, // 10 bps
+      { ...rows[1], open_time_ms: 2000, log_ret: 0.0020 }, // 20 bps (boundary value)
+      { ...rows[2], open_time_ms: 3000, log_ret: 0.0030 }, // 30 bps (max boundary value)
+    ];
+
+    // Non-last bin: [10 bps, 20 bps) -> should include 10 bps, exclude 20 bps
+    const bin1 = selectInstances(customRows, {
+      domain: 'volatility',
+      binRange: [10, 20],
+      isLastBin: false,
+    });
+    expect(bin1.length).toBe(1);
+    expect(bin1[0].log_ret).toBe(0.0010);
+
+    // Last bin: [20 bps, 30 bps] with isLastBin: true -> should include both 20 bps and 30 bps
+    const lastBin = selectInstances(customRows, {
+      domain: 'volatility',
+      binRange: [20, 30],
+      isLastBin: true,
+    });
+    expect(lastBin.length).toBe(2);
+    expect(lastBin[0].log_ret).toBe(0.0020);
+    expect(lastBin[1].log_ret).toBe(0.0030);
   });
 });

@@ -464,41 +464,51 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
           </div>
         </div>
         <p class="inspect-desc-text">
-          Showing ${hasTruncation ? 'first 5 and last 5 observations' : `${previewRows.length} observations`} of the exact filtered subset. All 15 columns available in RFC4180 CSV export.
+          ${options.defId === 'quality.gaps' && subset.length > 0
+            ? 'Showing surrounding boundary context bars (last bar before outage and first bar after recovery).'
+            : previewRows.length === 0
+            ? 'Zero exchange bars exist within this missing range interval.'
+            : `Showing ${hasTruncation ? 'first 5 and last 5 observations' : `${previewRows.length} observations`} of the exact filtered subset. All 15 columns available in RFC4180 CSV export.`}
         </p>
-        <div class="inspect-table-wrap">
-          <table class="data-table inspect-data-table">
-            <thead>
-              <tr>
-                <th>Open Time (UTC)</th>
-                <th class="right">Open</th>
-                <th class="right">Close</th>
-                <th class="right">Volume (BTC)</th>
-                <th class="right">Log Ret (bps)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${previewRows.map((r, i) => {
-                const dateStr = new Date(r.open_time_ms).toISOString().replace('.000Z', '').replace('T', ' ');
-                const retStr = r.log_ret !== null && r.log_ret !== undefined ? (r.log_ret * 10000).toFixed(1) : '—';
-                const isDivider = hasTruncation && i === 5;
-                const dividerHtml = isDivider
-                  ? `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 4px; font-style: italic; background: var(--bg-hover);">... (${subset.length - 10} rows omitted in preview) ...</td></tr>`
-                  : '';
-                return `
-                  ${dividerHtml}
-                  <tr>
-                    <td class="font-mono" style="font-size: 11px;">${dateStr}</td>
-                    <td class="right font-tabular">${r.open.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
-                    <td class="right font-tabular">${r.close.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
-                    <td class="right font-tabular">${r.volume.toFixed(1)}</td>
-                    <td class="right font-tabular ${Number(retStr) >= 0 ? 'text-positive' : 'text-negative'}">${retStr}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+        ${previewRows.length === 0 ? `
+          <div class="drawer-notice-info" style="padding: 16px; margin: 8px 0; background: var(--bg-surface-elevated, #161b22); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); text-align: center; color: var(--text-muted); font-size: var(--text-xs);">
+            <span>⚠️ Data gap — no exchange instances recorded during this outage window.</span>
+          </div>
+        ` : `
+          <div class="inspect-table-wrap">
+            <table class="data-table inspect-data-table">
+              <thead>
+                <tr>
+                  <th>Open Time (UTC)</th>
+                  <th class="right">Open</th>
+                  <th class="right">Close</th>
+                  <th class="right">Volume (BTC)</th>
+                  <th class="right">Log Ret (bps)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${previewRows.map((r, i) => {
+                  const dateStr = new Date(r.open_time_ms).toISOString().replace('.000Z', '').replace('T', ' ');
+                  const retStr = r.log_ret !== null && r.log_ret !== undefined ? (r.log_ret * 10000).toFixed(1) : '—';
+                  const isDivider = hasTruncation && i === 5;
+                  const dividerHtml = isDivider
+                    ? `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 4px; font-style: italic; background: var(--bg-hover);">... (${subset.length - 10} rows omitted in preview) ...</td></tr>`
+                    : '';
+                  return `
+                    ${dividerHtml}
+                    <tr>
+                      <td class="font-mono" style="font-size: 11px;">${dateStr}</td>
+                      <td class="right font-tabular">${r.open.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
+                      <td class="right font-tabular">${r.close.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
+                      <td class="right font-tabular">${r.volume.toFixed(1)}</td>
+                      <td class="right font-tabular ${Number(retStr) >= 0 ? 'text-positive' : 'text-negative'}">${retStr}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
       </section>
 
       <!-- Section 5: Provenance -->

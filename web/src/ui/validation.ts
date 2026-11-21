@@ -618,6 +618,7 @@ export function createValidationView(container: HTMLElement, getContext: () => V
         rangeBps: `${b.binStart.toFixed(1)} to ${b.binEnd.toFixed(1)} bps`,
         binMin: b.binStart,
         binMax: b.binEnd,
+        isLastBin: idx === hist.length - 1,
         count: b.count,
         pct: totalCount > 0 ? ((b.count / totalCount) * 100).toFixed(2) + '%' : '0.00%',
       }));
@@ -646,6 +647,7 @@ export function createValidationView(container: HTMLElement, getContext: () => V
           const subset = selectInstances(rows, {
             domain: 'volatility',
             binRange: [row.binMin, row.binMax],
+            isLastBin: Boolean(row.isLastBin),
           });
           openInspectDrawer({
             defId: 'volatility.histogram',
