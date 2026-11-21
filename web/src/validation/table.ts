@@ -14,6 +14,7 @@ import {
   ResponsiveLayoutModule,
   FrozenColumnsModule,
   TooltipModule,
+  EditModule,
   type ColumnDefinition,
   type Options,
 } from 'tabulator-tables';
@@ -31,6 +32,7 @@ Tabulator.registerModule([
   ResponsiveLayoutModule,
   FrozenColumnsModule,
   TooltipModule,
+  EditModule,
 ]);
 
 export interface ValidationTableOptions {
@@ -45,6 +47,7 @@ export interface ValidationTableOptions {
   height?: string | number;
   searchable?: boolean;
   layout?: Options['layout'];
+  responsiveLayout?: Options['responsiveLayout'];
 }
 
 export interface ValidationTableInstance {
@@ -106,7 +109,7 @@ export function createValidationTable(
       headerTooltip: true,
     },
     layout: options.layout ?? 'fitColumns',
-    responsiveLayout: 'collapse',
+    responsiveLayout: options.responsiveLayout ?? (options.layout === 'fitDataFill' ? false : 'collapse'),
     responsiveLayoutCollapseStartOpen: false,
     pagination: options.pagination ?? true,
     paginationMode: 'local',

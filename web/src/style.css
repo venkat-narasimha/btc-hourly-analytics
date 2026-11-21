@@ -2032,3 +2032,40 @@ input[type="checkbox"] {
   color: var(--text-primary) !important;
   font-size: 13px !important;
 }
+
+/* Header filter inputs */
+.tabulator .tabulator-header input {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tabulator .tabulator-header input:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+}
+
+/* Tabulator internal tableholder scrollbars */
+.tabulator .tabulator-tableholder::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-track {
+  background: var(--bg-elevated);
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
