@@ -26,7 +26,7 @@ RUN rm -rf /usr/share/nginx/html/*
 
 # Copy built SPA from builder stage to root and /btc
 COPY --from=builder /app/dist /usr/share/nginx/html
-RUN mkdir -p /usr/share/nginx/html/btc && cp -r /usr/share/nginx/html/* /usr/share/nginx/html/btc/
+COPY --from=builder /app/dist /usr/share/nginx/html/btc
 
 # Copy custom nginx configuration
 COPY docker/nginx.conf /etc/nginx/nginx.conf
