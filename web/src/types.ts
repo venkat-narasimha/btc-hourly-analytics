@@ -77,7 +77,10 @@ export type SeasonalityMetric =
   | 'mean_hl_range';
 
 /** Tab identifiers */
-export type TabId = 'overview' | 'price' | 'seasonality' | 'quality' | 'heatmap' | 'volatility' | 'flow' | 'calendar';
+export type TabId = 'overview' | 'price' | 'seasonality' | 'quality' | 'heatmap' | 'volatility' | 'flow' | 'calendar' | 'validation';
+
+/** Validation domain identifiers */
+export type ValidationDomain = 'raw' | 'kpis' | 'seasonality' | 'heatmap' | 'volatility' | 'flow' | 'calendar' | 'quality';
 
 /** UI Theme */
 export type Theme = 'light' | 'dark';

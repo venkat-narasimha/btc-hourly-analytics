@@ -51,4 +51,20 @@ describe('Proof Links (Phase A)', () => {
     const parsed = parseProofLink('#/inspect');
     expect(parsed).toEqual({});
   });
+
+  it('serializes and parses validation tab with domain and target', () => {
+    const params: ProofLinkParams = {
+      tab: 'validation',
+      domain: 'seasonality',
+      bucket: 'hour',
+      target: '14',
+      defId: 'seasonality.mean_return',
+      release_id: 'release-20261120',
+    };
+    const link = createProofLink(params);
+    expect(link).toContain('tab=validation');
+    expect(link).toContain('domain=seasonality');
+    const parsed = parseProofLink(link);
+    expect(parsed).toEqual(params);
+  });
 });

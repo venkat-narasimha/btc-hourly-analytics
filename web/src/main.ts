@@ -10,7 +10,7 @@
  */
 
 import './style.css';
-import type { KlineRow, Meta, QualityReport, TabId, Theme } from './types';
+import type { KlineRow, Meta, QualityReport, TabId, Theme, ValidationDomain } from './types';
 import { fetchKlines, fetchMeta, fetchQualityReport, filterByRange } from './data/loader';
 import { getInitialTheme, saveTheme } from './ui/theme';
 import { createSidebar } from './ui/sidebar';
@@ -72,6 +72,10 @@ const PAGE_INFO: Record<TabId, { title: string; subtitle: string; numCharts?: nu
     title: 'Data Quality & Provenance Audit',
     subtitle: 'Full integrity audit: SHA-256 checksums, exchange outage gaps, and raw ingestion normalizations',
   },
+  validation: {
+    title: 'Instance Validation Tables',
+    subtitle: 'Interactive tabular verification of all metrics with enumerable instance drill-down and live proofs',
+  },
 };
 
 // Global application state
@@ -86,6 +90,7 @@ let currentPreset: Preset | 'Custom' = 'All';
 let currentStartMs = 0;
 let currentEndMs = 0;
 let currentTheme: Theme = getInitialTheme();
+let currentValidationDomain: ValidationDomain | undefined;
 
 // Apply initial theme immediately to prevent flashing
 saveTheme(currentTheme);
@@ -241,6 +246,8 @@ function mountTab(tab: TabId) {
     renderOverviewSkeleton(content);
   } else if (tab === 'quality') {
     renderQualitySkeleton(content);
+  } else if (tab === 'validation') {
+    content.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">Loading Validation Tables...</div>';
   } else {
     renderChartPageSkeleton(content, pageMeta.numCharts ?? 1);
   }
@@ -362,6 +369,29 @@ function mountTab(tab: TabId) {
         renderQualityReport(content, metaData, qualityData, allData);
         break;
       }
+
+      case 'validation': {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'page-wrapper tab-enter';
+        content.appendChild(wrapper);
+
+        import('./ui/validation').then(({ createValidationView }) => {
+          const vView = createValidationView(wrapper, () => ({
+            data: filteredData,
+            meta: metaData,
+            qualityData: qualityData,
+            startMs: currentStartMs,
+            endMs: currentEndMs,
+            initialDomain: currentValidationDomain,
+          }));
+          activeChartInstance = {
+            destroy() {
+              vView.destroy();
+            },
+          };
+        });
+        break;
+      }
     }
   });
 }
@@ -439,6 +469,10 @@ async function init() {
     if (proof.tab && proof.tab in PAGE_INFO) {
       activeTab = proof.tab as TabId;
       sidebarInstance?.setActiveTab(activeTab);
+    }
+
+    if (proof.domain) {
+      currentValidationDomain = proof.domain as ValidationDomain;
     }
 
     if (proof.start && proof.end && allData.length > 0) {

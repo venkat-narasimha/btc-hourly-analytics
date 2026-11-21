@@ -8,6 +8,7 @@
 
 export interface ProofLinkParams {
   tab?: string;
+  domain?: string;
   defId?: string;
   metric?: string;
   bucket?: string;
@@ -15,6 +16,7 @@ export interface ProofLinkParams {
   end?: number;
   target?: string;
   window?: number;
+  openTimeMs?: number;
   release_id?: string;
 }
 
@@ -24,6 +26,7 @@ export interface ProofLinkParams {
 export function createProofLink(params: ProofLinkParams): string {
   const sp = new URLSearchParams();
   if (params.tab) sp.set('tab', params.tab);
+  if (params.domain) sp.set('domain', params.domain);
   if (params.defId) sp.set('def', params.defId);
   if (params.metric) sp.set('metric', params.metric);
   if (params.bucket) sp.set('bucket', params.bucket);
@@ -31,6 +34,7 @@ export function createProofLink(params: ProofLinkParams): string {
   if (params.start !== undefined && !isNaN(params.start)) sp.set('start', String(params.start));
   if (params.end !== undefined && !isNaN(params.end)) sp.set('end', String(params.end));
   if (params.window !== undefined && !isNaN(params.window)) sp.set('window', String(params.window));
+  if (params.openTimeMs !== undefined && !isNaN(params.openTimeMs)) sp.set('open_time_ms', String(params.openTimeMs));
   if (params.release_id) sp.set('release_id', params.release_id);
 
   const qs = sp.toString();
@@ -54,11 +58,17 @@ export function parseProofLink(hash: string): ProofLinkParams | null {
   const res: ProofLinkParams = {};
 
   if (sp.has('tab')) res.tab = sp.get('tab')!;
+  if (sp.has('domain')) res.domain = sp.get('domain')!;
   if (sp.has('def')) res.defId = sp.get('def')!;
   if (sp.has('metric')) res.metric = sp.get('metric')!;
   if (sp.has('bucket')) res.bucket = sp.get('bucket')!;
   if (sp.has('target')) res.target = sp.get('target')!;
   if (sp.has('release_id')) res.release_id = sp.get('release_id')!;
+
+  if (sp.has('open_time_ms')) {
+    const t = Number(sp.get('open_time_ms'));
+    if (!isNaN(t)) res.openTimeMs = t;
+  }
 
   if (sp.has('start')) {
     const s = Number(sp.get('start'));

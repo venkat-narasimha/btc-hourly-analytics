@@ -14,6 +14,8 @@
 import type { KlineRow, Meta, QualityReport } from '../types';
 import { getMetricDef, type Result } from './registry';
 import { createProofLink } from './links';
+import { generatePlainLanguageProof, recomputeFromInstances } from '../validation/proof';
+import { downloadExcel } from '../validation/export';
 
 export interface OpenDrawerOptions {
   defId: string;
@@ -316,6 +318,15 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
     `
     : '';
 
+  const rawDisplayed = result.kind === 'scalar' ? result.value : (subset[0]?.close ?? 0);
+  const plainProof = generatePlainLanguageProof({
+    def,
+    displayedValue: rawDisplayed,
+    instances: subset,
+    meta: options.meta,
+    qualityData: options.qualityData,
+  });
+
   return `
     <div class="inspect-drawer-header">
       <div class="inspect-drawer-title-group">
@@ -396,6 +407,10 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
       <!-- Section 3: Trace Intermediates -->
       <section class="inspect-section">
         <h3 class="inspect-section-title">3. Computation Trace Intermediates</h3>
+        <div class="proof-panel-card" style="background: var(--bg-surface-elevated, #161b22); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px; line-height: 1.5; font-size: var(--text-xs);">
+          <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">Live Verification Proof:</strong>
+          <span style="color: var(--text-secondary);">${escapeHtml(plainProof)}</span>
+        </div>
         <div class="inspect-fields-grid">
           <div class="inspect-field-row">
             <span class="inspect-field-label">Σ log_ret</span>
@@ -428,16 +443,25 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
 
       <!-- Section 4: Data Preview & Export -->
       <section class="inspect-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
           <h3 class="inspect-section-title" style="margin: 0;">4. Exact Underlying Observations</h3>
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-download-subset-csv">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
-              <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" />
-              <polyline points="5 8 8 11 11 8" />
-              <line x1="8" y1="2" x2="8" y2="11" />
-            </svg>
-            Download Subset CSV (${subset.length.toLocaleString()} rows)
-          </button>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-download-subset-csv">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" />
+                <polyline points="5 8 8 11 11 8" />
+                <line x1="8" y1="2" x2="8" y2="11" />
+              </svg>
+              Download Subset CSV (${subset.length.toLocaleString()} rows)
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-download-subset-excel" title="Download subset as Excel (.xlsx)">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                <path d="M5 5l6 6M11 5l-6 6" />
+              </svg>
+              Download Excel
+            </button>
+          </div>
         </div>
         <p class="inspect-desc-text">
           Showing ${hasTruncation ? 'first 5 and last 5 observations' : `${previewRows.length} observations`} of the exact filtered subset. All 15 columns available in RFC4180 CSV export.
@@ -596,12 +620,46 @@ export function openInspectDrawer(options: OpenDrawerOptions): void {
     triggerCsvDownload(csvContent, filenameBase);
   });
 
+  // Excel Download button
+  const downloadExcelBtn = drawer.querySelector('#btn-download-subset-excel') as HTMLButtonElement;
+  downloadExcelBtn?.addEventListener('click', async () => {
+    if (!downloadExcelBtn) return;
+    const origHtml = downloadExcelBtn.innerHTML;
+    downloadExcelBtn.disabled = true;
+    downloadExcelBtn.innerHTML = '<span>Exporting...</span>';
+    try {
+      const exportCols = [
+        { title: 'open_time_ms', field: 'open_time_ms' },
+        { title: 'open', field: 'open' },
+        { title: 'high', field: 'high' },
+        { title: 'low', field: 'low' },
+        { title: 'close', field: 'close' },
+        { title: 'volume', field: 'volume' },
+        { title: 'quote_volume', field: 'quote_volume' },
+        { title: 'trades', field: 'trades' },
+        { title: 'taker_buy_volume', field: 'taker_buy_volume' },
+        { title: 'taker_buy_quote_volume', field: 'taker_buy_quote_volume' },
+        { title: 'log_ret', field: 'log_ret' },
+        { title: 'hour', field: 'hour' },
+        { title: 'dow', field: 'dow' },
+        { title: 'taker_buy_ratio', field: 'taker_buy_ratio' },
+        { title: 'hl_range', field: 'hl_range' },
+      ];
+      await downloadExcel(filenameBase, 'Instances', exportCols, subset);
+    } catch (err: any) {
+      alert(`Excel export failed: ${err?.message || String(err)}`);
+    } finally {
+      downloadExcelBtn.disabled = false;
+      downloadExcelBtn.innerHTML = origHtml;
+    }
+  });
+
   // Recompute button
   const recomputeBtn = drawer.querySelector('#btn-recompute-live') as HTMLButtonElement;
   const statusBanner = drawer.querySelector('#recompute-status-banner') as HTMLElement;
   recomputeBtn?.addEventListener('click', () => {
     const t0 = performance.now();
-    const freshRes = def.compute(
+    const result = def.compute(
       subset,
       {
         bucket: options.bucket,
@@ -612,12 +670,27 @@ export function openInspectDrawer(options: OpenDrawerOptions): void {
       },
       { meta: options.meta, qualityData: options.qualityData }
     );
-    void freshRes;
+    const displayedRaw = result.kind === 'scalar' ? result.value : (subset[0]?.close ?? 0);
+    const recomputeRes = recomputeFromInstances({
+      def,
+      displayedValue: displayedRaw,
+      instances: subset,
+      params: {
+        bucket: options.bucket,
+        metric: options.metric,
+        window: options.window,
+        startMs: options.startMs,
+        endMs: options.endMs,
+      },
+      meta: options.meta,
+      qualityData: options.qualityData,
+      targetKey: options.target,
+    });
     const elapsed = (performance.now() - t0).toFixed(2);
     statusBanner.innerHTML = `
-      <div class="alert alert-positive" style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 6px 10px; margin-top: 6px;">
-        <span>✓ <strong>Wiring check passed:</strong> Recomputed successfully in ${elapsed}ms (same code verification).</span>
-        <span class="badge badge-positive">PASS</span>
+      <div class="alert ${recomputeRes.isMatch ? 'alert-positive' : 'alert-warning'}" style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 6px 10px; margin-top: 6px;">
+        <span>✓ <strong>Wiring check passed:</strong> ${recomputeRes.message} in ${elapsed}ms (same code verification).</span>
+        <span class="badge ${recomputeRes.isMatch ? 'badge-positive' : 'badge-warning'}">${recomputeRes.isMatch ? 'PASS' : 'WARN'}</span>
       </div>
     `;
   });
