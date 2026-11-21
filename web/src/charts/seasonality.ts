@@ -42,11 +42,11 @@ export function createSeasonalityView(
 
   container.innerHTML = `
     <div class="seasonality-view" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
-      <div class="filterbar seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 4px 0;">
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <label style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
-            <select id="seasonality-metric-select" class="styled-select" style="padding: 6px 10px; font-size: var(--text-sm); cursor: pointer;">
+      <div class="ctl seasonality-controls" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 0;">
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <div class="field">
+            <label>Metric</label>
+            <select id="seasonality-metric-select">
               <option value="mean_return">Mean Return (bps)</option>
               <option value="volatility">Volatility (σ, bps)</option>
               <option value="win_rate">Win Rate (%)</option>
@@ -62,38 +62,37 @@ export function createSeasonalityView(
             })}
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px; margin-left: 12px;">
-            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer;">
-              <input type="checkbox" id="session-overlay-toggle" />
-              <span>Trading Sessions Overlay</span>
-            </label>
-            ${renderInfoTooltip({
-              title: 'Global Trading Sessions (UTC)',
-              description: 'Color-coded bands marking Asia (00:00–08:00 UTC), Europe (07:00–16:00 UTC), and US (13:00–22:00 UTC) trading hours.',
-              caveat: 'Peak cross-continental liquidity and volatility cluster during the London/New York session overlap (13:00–16:00 UTC).',
-              position: 'bottom',
-            })}
-          </div>
+          <label class="switch" style="display: inline-flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="session-overlay-toggle" />
+            <span class="tr"></span>
+            <span>Trading Sessions Overlay</span>
+          </label>
+          ${renderInfoTooltip({
+            title: 'Global Trading Sessions (UTC)',
+            description: 'Color-coded bands marking Asia (00:00–08:00 UTC), Europe (07:00–16:00 UTC), and US (13:00–22:00 UTC) trading hours.',
+            caveat: 'Peak cross-continental liquidity and volatility cluster during the London/New York session overlap (13:00–16:00 UTC).',
+            position: 'bottom',
+          })}
         </div>
 
-        <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
-          UTC buckets · returns, not prices · descriptive, not predictive.
+        <span class="badge amber" style="margin-left: auto;">
+          UTC buckets · descriptive, not predictive
         </span>
       </div>
 
       <div class="seasonality-charts-grid" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
-        <div class="chart-card" style="display: flex; flex-direction: column;">
-          <div class="chart-card-header">
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px;">
+        <div class="card chart-card" style="display: flex; flex-direction: column;">
+          <div class="hd chart-card-header">
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
               <span>Hour of Day (UTC)</span>
               <span id="hour-header-actions" style="display: inline-flex; align-items: center; gap: 4px;"></span>
             </h3>
           </div>
-          <div id="hour-chart" class="chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
+          <div id="hour-chart" class="bd chart-card-body no-padding" style="width: 100%; height: 320px; min-height: 320px;"></div>
         </div>
-        <div class="chart-card" style="display: flex; flex-direction: column;">
-          <div class="chart-card-header">
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px;">
+        <div class="card chart-card" style="display: flex; flex-direction: column;">
+          <div class="hd chart-card-header">
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
               <span>Day of Week (UTC)</span>
               <span id="dow-header-actions" style="display: inline-flex; align-items: center; gap: 4px;"></span>
             </h3>

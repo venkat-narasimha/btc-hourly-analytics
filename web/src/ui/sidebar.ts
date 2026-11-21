@@ -57,10 +57,6 @@ const NAV_ITEMS: Array<{ tab: TabId; label: string; icon: string }> = [
   },
 ];
 
-const CHEVRON_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,4 6,8 10,12"/></svg>`;
-
-const COLLAPSED_KEY = 'btc_sidebar_collapsed';
-
 export function createSidebar(
   container: HTMLElement,
   initialTab: TabId,
@@ -70,75 +66,50 @@ export function createSidebar(
   setActiveTab(tab: TabId): void;
   setTheme(theme: Theme): void;
 } {
+  container.className = 'rail app-sidebar';
+
   // Build nav items HTML
   const navItemsHtml = NAV_ITEMS.map(({ tab, label, icon }) => `
-    <button class="sidebar-nav-item${tab === initialTab ? ' active' : ''}" data-tab="${tab}" title="${label}">
-      <span class="nav-icon">${icon}</span>
-      <span class="nav-label">${label}</span>
+    <button class="sidebar-nav-item${tab === initialTab ? ' on active' : ''}" data-tab="${tab}" title="${label}">
+      ${icon}
+      <span>${label}</span>
     </button>
   `).join('');
 
   container.innerHTML = `
-    <div class="sidebar-header">
-      <div class="sidebar-brand">
-        <div class="sidebar-logo-mark">₿</div>
-        <div class="sidebar-brand-text">
-          <span class="sidebar-brand-name">BTC Analytics</span>
-          <span class="sidebar-brand-sub">1h · Binance Futures</span>
-        </div>
+    <div class="brand">
+      <div class="mark">₿</div>
+      <div>
+        <b>BTC Analytics</b>
+        <small>1h · Binance Futures</small>
       </div>
-      <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse">
-        ${CHEVRON_SVG}
-      </button>
     </div>
-    <nav class="sidebar-nav">
-      <span class="sidebar-section-label">Analytics</span>
+    <div class="navlabel">ANALYTICS</div>
+    <nav class="nav sidebar-nav" id="sidebar-nav">
       ${navItemsHtml}
     </nav>
-    <div class="sidebar-footer">
-      <div class="sidebar-theme-row">
-        <span class="theme-label">Theme</span>
-        <div class="theme-toggle-group">
-          <button class="theme-btn${initialTheme === 'dark' ? ' active' : ''}" data-theme-val="dark" title="Dark Theme">🌙 <span class="theme-text">Dark</span></button>
-          <button class="theme-btn${initialTheme === 'light' ? ' active' : ''}" data-theme-val="light" title="Light Theme">☀️ <span class="theme-text">Light</span></button>
-        </div>
+    <div class="railfoot sidebar-footer">
+      <div class="themeswitch" id="theme-switch">
+        <button type="button" class="theme-btn${initialTheme === 'light' ? ' on active' : ''}" data-theme-val="light" title="Light Theme">☀ Light</button>
+        <button type="button" class="theme-btn${initialTheme === 'dark' ? ' on active' : ''}" data-theme-val="dark" title="Dark Theme">☾ Dark</button>
       </div>
     </div>
   `;
-
-  // Restore collapsed state
-  const sidebar = document.getElementById('app-sidebar');
-  try {
-    const saved = localStorage.getItem(COLLAPSED_KEY);
-    if (saved === 'true' && sidebar) {
-      sidebar.setAttribute('data-collapsed', 'true');
-    }
-  } catch {
-    // ignore
-  }
-
-  // Collapse button
-  const collapseBtn = container.querySelector<HTMLButtonElement>('#sidebar-collapse-btn');
-  collapseBtn?.addEventListener('click', () => {
-    const sb = document.getElementById('app-sidebar');
-    if (!sb) return;
-    const collapsed = sb.getAttribute('data-collapsed') === 'true';
-    const next = !collapsed;
-    sb.setAttribute('data-collapsed', String(next));
-    try {
-      localStorage.setItem(COLLAPSED_KEY, String(next));
-    } catch {
-      // ignore
-    }
-  });
 
   // Nav item clicks
   const navItems = container.querySelectorAll<HTMLButtonElement>('.sidebar-nav-item');
   navItems.forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab as TabId;
-      navItems.forEach(b => b.classList.remove('active'));
+      navItems.forEach(b => {
+        b.classList.remove('active');
+        b.classList.remove('on');
+      });
       btn.classList.add('active');
+      btn.classList.add('on');
+      // On mobile viewports, close sidebar drawer
+      container.classList.remove('on');
+      container.classList.remove('open');
       callbacks.onTabChange(tab);
     });
   });
@@ -148,17 +119,29 @@ export function createSidebar(
   themeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       const theme = btn.dataset.themeVal as Theme;
-      themeButtons.forEach(b => b.classList.toggle('active', b.dataset.themeVal === theme));
+      themeButtons.forEach(b => {
+        const isMatch = b.dataset.themeVal === theme;
+        b.classList.toggle('active', isMatch);
+        b.classList.toggle('on', isMatch);
+      });
       callbacks.onThemeChange(theme);
     });
   });
 
   return {
     setActiveTab(tab: TabId) {
-      navItems.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      navItems.forEach(b => {
+        const isMatch = b.dataset.tab === tab;
+        b.classList.toggle('active', isMatch);
+        b.classList.toggle('on', isMatch);
+      });
     },
     setTheme(theme: Theme) {
-      themeButtons.forEach(b => b.classList.toggle('active', b.dataset.themeVal === theme));
+      themeButtons.forEach(b => {
+        const isMatch = b.dataset.themeVal === theme;
+        b.classList.toggle('active', isMatch);
+        b.classList.toggle('on', isMatch);
+      });
     },
   };
 }

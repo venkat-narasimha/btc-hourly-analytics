@@ -48,10 +48,11 @@ export function createPriceChart(
   // Chart container layout
   container.innerHTML = `
     <div class="price-chart-wrapper" style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 540px; flex: 1;">
-      <div class="chart-card-header price-chart-toolbar" style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;">
-        <label class="toggle-control" style="font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px;">
+      <div class="ctl price-chart-toolbar" style="margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+        <label class="switch">
           <input type="checkbox" id="log-scale-checkbox" ${isLogScale ? 'checked' : ''} />
-          <span>Log Scale</span>
+          <span class="tr"></span>
+          <span>Log scale</span>
         </label>
         ${renderInfoTooltip({
           title: 'Logarithmic Price Scaling',
@@ -60,9 +61,9 @@ export function createPriceChart(
           caveat: 'Essential for evaluating Bitcoin across multi-year cycle orders of magnitude without distorting early history.',
           position: 'bottom',
         })}
-        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-          <span class="timezone-indicator" style="font-size: var(--text-xs); color: var(--color-info);">
-            Time axis: <strong id="tz-axis-label" style="color: var(--text-primary);">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+          <span class="badge blue timezone-indicator">
+            Time axis: <strong id="tz-axis-label">${isIst ? 'IST (UTC+5:30)' : 'UTC'}</strong>
           </span>
           ${renderInfoTooltip({
             title: 'Timezone Timestamp Offset',
@@ -74,8 +75,15 @@ export function createPriceChart(
           ${renderInspectTrigger('kpi.latest_close', { title: 'Inspect Dataset & Price Bars' })}
         </div>
       </div>
-      <div class="price-chart-container" style="width: 100%; flex: 1; min-height: 500px; height: 500px; position: relative; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--chart-bg);"></div>
-      <div class="price-chart-tooltip" style="position: absolute; top: 48px; left: 16px; z-index: 10; pointer-events: none; font-size: var(--text-xs); padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--font-mono, monospace); display: none;"></div>
+      <div class="card" style="flex: 1; display: flex; flex-direction: column; min-height: 500px; padding: 0; overflow: hidden;">
+        <div class="price-chart-container" style="width: 100%; flex: 1; min-height: 500px; height: 500px; position: relative;"></div>
+      </div>
+      <div class="legend" style="margin-top: 8px;">
+        <span><i style="background:var(--green)"></i>Up candle</span>
+        <span><i style="background:var(--red)"></i>Down candle</span>
+        <span><i style="background:var(--amber)"></i>Volume / Last price</span>
+      </div>
+      <div class="price-chart-tooltip ctip" style="position: absolute; top: 56px; left: 16px; z-index: 10; pointer-events: none; font-size: var(--text-xs); padding: 8px 12px; border-radius: var(--radius-sm); font-family: var(--font-mono, monospace); display: none;"></div>
     </div>
   `;
 

@@ -30,8 +30,15 @@ export function createFlowView(
 
   container.innerHTML = `
     <div class="page-wrapper tab-enter flow-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+      <div class="pagehead">
+        <div>
+          <h2>Order Flow & Cumulative Volume Delta</h2>
+          <p>Aggressive taker buy vs sell flow · CVD running sum · perpetual-funding hourly patterns</p>
+        </div>
+      </div>
+
       <!-- Cumulative Taker Delta Line -->
-      <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
+      <div class="card chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 280px;">
         <div class="chart-card-header">
           <div>
             <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
@@ -49,13 +56,13 @@ export function createFlowView(
               Formula: Σ(2 · taker_buy_volume − volume) in BTC
             </div>
           </div>
-          <div id="net-delta-stat" class="font-tabular" style="font-size: var(--text-sm); font-weight: 600; font-family: var(--font-mono, monospace);"></div>
+          <div id="net-delta-stat" class="font-tabular" style="font-size: var(--text-sm); font-weight: 700; font-family: var(--font-mono, monospace);"></div>
         </div>
         <div id="cum-delta-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 200px;"></div>
       </div>
 
       <!-- Hourly Taker Buy Ratio Bar -->
-      <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 240px;">
+      <div class="card chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
         <div class="chart-card-header">
           <div>
             <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
@@ -112,8 +119,8 @@ export function createFlowView(
       netDeltaLabel.style.color = last >= 0 ? 'var(--color-positive)' : 'var(--color-negative)';
     }
 
-    const lineColor = currentTheme === 'light' ? '#2563eb' : '#38bdf8';
-    const areaStart = currentTheme === 'light' ? 'rgba(37, 99, 235, 0.20)' : 'rgba(56, 189, 248, 0.25)';
+    const lineColor = currentTheme === 'light' ? '#0ea5e9' : '#38bdf8';
+    const areaStart = currentTheme === 'light' ? 'rgba(14, 165, 233, 0.22)' : 'rgba(56, 189, 248, 0.25)';
 
     cumChart.setOption({
       backgroundColor: 'transparent',
@@ -211,7 +218,7 @@ export function createFlowView(
           type: 'bar',
           data: ratios,
           itemStyle: {
-            color: (params: any) => (params.value >= 50.0 ? '#10b981' : '#f59e0b'),
+            color: (params: any) => (params.value >= 50.0 ? (currentTheme === 'light' ? '#0E9F6E' : '#34D399') : '#F7931A'),
           },
           markLine: {
             silent: true,

@@ -34,8 +34,8 @@ export function createVolatilityView(
   container.innerHTML = `
     <div class="page-wrapper tab-enter volatility-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
       <!-- Rolling Volatility Section -->
-      <div class="chart-card" style="display: flex; flex-direction: column;">
-        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="card chart-card" style="display: flex; flex-direction: column;">
+        <div class="hd chart-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
             <span>Rolling Volatility (σ of Hourly Log Returns)</span>
             ${renderInfoTooltip({
@@ -49,9 +49,10 @@ export function createVolatilityView(
               ${renderInspectTrigger('volatility.rolling_vol', { window: currentWindow, title: 'Inspect Rolling Volatility' })}
             </span>
           </h3>
-          <div style="display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: var(--text-secondary);">
-            <span>Window: <strong id="window-val-label" class="text-info" style="color: var(--color-info);">168h (7d)</strong></span>
-            <input type="range" id="vol-window-slider" min="24" max="720" step="24" value="168" style="cursor: pointer; width: 140px; accent-color: var(--accent);" />
+          <div class="field" style="display: inline-flex; align-items: center; gap: 8px; margin-left: auto;">
+            <label>Window</label>
+            <input type="range" id="vol-window-slider" min="24" max="720" step="24" value="168" style="cursor: pointer; width: 140px; accent-color: var(--amber);" />
+            <b id="window-val-label" class="mono" style="color: var(--blue);">168h (7d)</b>
             ${renderInfoTooltip({
               title: 'Sliding Window Parameter (W)',
               description: 'Configures sample duration between 24h (1 day) and 720h (30 days). Default 168h represents 1 trading week.',
@@ -59,15 +60,15 @@ export function createVolatilityView(
             })}
           </div>
         </div>
-        <div id="rolling-vol-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px;"></div>
+        <div id="rolling-vol-chart" class="bd chart-card-body no-padding" style="width: 100%; height: 260px;"></div>
       </div>
 
       <!-- Return Distribution Section -->
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; flex: 1; min-height: 280px;">
-        <div class="chart-card" style="display: flex; flex-direction: column;">
-          <div class="chart-card-header">
+      <div class="grid2" style="flex: 1; min-height: 280px;">
+        <div class="card chart-card" style="display: flex; flex-direction: column;">
+          <div class="hd chart-card-header">
             <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
-              <span>Return Distribution (Hourly Log Returns in Basis Points)</span>
+              <span>Return Distribution</span>
               ${renderInfoTooltip({
                 defId: 'volatility.histogram',
                 title: 'Empirical Return Distribution',
@@ -77,14 +78,15 @@ export function createVolatilityView(
               })}
               ${renderInspectTrigger('volatility.histogram', { title: 'Inspect Distribution Histogram' })}
             </h3>
+            <small class="chart-card-subtitle text-muted" style="margin-left: 6px;">50 equal-width bins, bps</small>
           </div>
-          <div id="dist-chart" class="chart-card-body no-padding" style="width: 100%; height: 260px; min-height: 260px;"></div>
+          <div id="dist-chart" class="bd chart-card-body no-padding" style="width: 100%; height: 260px; min-height: 260px;"></div>
         </div>
 
-        <div class="chart-card" style="display: flex; flex-direction: column;">
-          <div class="chart-card-header">
+        <div class="card chart-card" style="display: flex; flex-direction: column;">
+          <div class="hd chart-card-header">
             <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
-              <span>Distribution Moments &amp; Risk</span>
+              <span>Moments &amp; Quantiles</span>
               ${renderInfoTooltip({
                 defId: 'volatility.distribution_std',
                 title: 'Higher-Order Statistical Moments & Quantiles',
@@ -94,8 +96,9 @@ export function createVolatilityView(
               })}
               ${renderInspectTrigger('volatility.distribution_std', { title: 'Inspect Moments & Quantiles' })}
             </h3>
+            <small class="chart-card-subtitle text-muted" style="margin-left: 6px;">Population g₁/g₂ · nearest-rank quantiles</small>
           </div>
-          <div id="dist-stats-panel" class="chart-card-body" style="font-size: var(--text-sm); display: flex; flex-direction: column; gap: 4px; overflow-y: auto;">
+          <div id="dist-stats-panel" class="bd chart-card-body" style="overflow-y: auto;">
             <!-- Filled dynamically -->
           </div>
         </div>
@@ -118,8 +121,8 @@ export function createVolatilityView(
     const times = points.map(p => new Date(p.timeMs).toISOString().substring(0, 10));
     const vals = points.map(p => Number(p.volBps.toFixed(1)));
 
-    const lineColor = currentTheme === 'light' ? '#2563eb' : '#38bdf8';
-    const areaStart = currentTheme === 'light' ? 'rgba(37, 99, 235, 0.20)' : 'rgba(56, 189, 248, 0.25)';
+    const lineColor = currentTheme === 'light' ? '#2563EB' : '#60A5FA';
+    const areaStart = currentTheme === 'light' ? 'rgba(37, 99, 235, 0.20)' : 'rgba(96, 165, 250, 0.25)';
 
     volChart.setOption({
       backgroundColor: 'transparent',
@@ -214,54 +217,48 @@ export function createVolatilityView(
         {
           type: 'bar',
           data: counts,
-          itemStyle: { color: '#6366f1' },
+          itemStyle: { color: currentTheme === 'light' ? '#7C3AED' : '#A78BFA' },
         },
       ],
     }, true);
 
     statsPanelEl.innerHTML = `
-      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
-          <span>Mean Return</span>
-          ${renderInspectTrigger('volatility.distribution_mean', { title: 'Inspect Mean Return' })}
-        </span>
-        <strong style="color: var(--text-primary); font-family: var(--font-mono, monospace);">${stats.meanBps.toFixed(2)} bps</strong>
-      </div>
-      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
-          <span>Std Dev (σ)</span>
-          ${renderInspectTrigger('volatility.distribution_std', { title: 'Inspect Sample Std Dev' })}
-        </span>
-        <strong style="color: var(--text-primary); font-family: var(--font-mono, monospace);">${stats.stdBps.toFixed(2)} bps</strong>
-      </div>
-      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
-          <span>Skewness</span>
-          ${renderInspectTrigger('volatility.distribution_skewness', { title: 'Inspect Skewness' })}
-        </span>
-        <strong style="color: ${stats.skewness >= 0 ? 'var(--color-positive)' : 'var(--color-warning)'}; font-family: var(--font-mono, monospace);">${stats.skewness.toFixed(3)}</strong>
-      </div>
-      <div class="insight-row" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
-        <span style="color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
-          <span>Excess Kurtosis</span>
-          ${renderInspectTrigger('volatility.distribution_kurtosis', { title: 'Inspect Kurtosis' })}
-        </span>
-        <strong style="color: var(--color-info); font-family: var(--font-mono, monospace);">${stats.kurtosis.toFixed(2)}${stats.kurtosis > 0 ? ' (Fat tails)' : ''}</strong>
-      </div>
-      <div style="margin-top: 8px; font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
-        <span>Quantiles (bps)</span>
-        ${renderInspectTrigger('volatility.quantiles', { title: 'Inspect Empirical Quantiles' })}
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: var(--text-xs);">
-        <div style="display: flex; justify-content: space-between;"><span>p1:</span> <strong style="color:var(--color-negative)">${stats.quantiles.p1.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p99:</span> <strong style="color:var(--color-positive)">${stats.quantiles.p99.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p5:</span> <strong style="color:var(--color-negative)">${stats.quantiles.p5.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p95:</span> <strong style="color:var(--color-positive)">${stats.quantiles.p95.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p25:</span> <strong>${stats.quantiles.p25.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>p75:</span> <strong>${stats.quantiles.p75.toFixed(1)}</strong></div>
-        <div style="display: flex; justify-content: space-between; grid-column: span 2; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
-          <span>Median (p50):</span> <strong style="color: var(--color-info)">${stats.quantiles.p50.toFixed(1)} bps</strong>
+      <div class="rows">
+        <div class="r">
+          <span class="k" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span>Mean</span>
+            ${renderInspectTrigger('volatility.distribution_mean', { title: 'Inspect Mean Return' })}
+          </span>
+          <span class="v mono">${stats.meanBps.toFixed(2)} bps</span>
         </div>
+        <div class="r">
+          <span class="k" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span>Sample σ</span>
+            ${renderInspectTrigger('volatility.distribution_std', { title: 'Inspect Sample Std Dev' })}
+          </span>
+          <span class="v mono">${stats.stdBps.toFixed(2)} bps</span>
+        </div>
+        <div class="r">
+          <span class="k" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span>Skewness g₁</span>
+            ${renderInspectTrigger('volatility.distribution_skewness', { title: 'Inspect Skewness' })}
+          </span>
+          <span class="v mono ${stats.skewness < 0 ? 'bad' : 'good'}">${stats.skewness.toFixed(4)}</span>
+        </div>
+        <div class="r">
+          <span class="k" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span>Excess kurtosis g₂</span>
+            ${renderInspectTrigger('volatility.distribution_kurtosis', { title: 'Inspect Kurtosis' })}
+          </span>
+          <span class="v mono blue">${stats.kurtosis.toFixed(2)}${stats.kurtosis > 0 ? ' · fat tails' : ''}</span>
+        </div>
+        <div class="r"><span class="k">p1</span><span class="v mono bad">${stats.quantiles.p1.toFixed(1)} bps</span></div>
+        <div class="r"><span class="k">p5</span><span class="v mono bad">${stats.quantiles.p5.toFixed(1)} bps</span></div>
+        <div class="r"><span class="k">p25</span><span class="v mono">${stats.quantiles.p25.toFixed(1)} bps</span></div>
+        <div class="r"><span class="k">p50 (Median)</span><span class="v mono blue">${stats.quantiles.p50.toFixed(1)} bps</span></div>
+        <div class="r"><span class="k">p75</span><span class="v mono">${stats.quantiles.p75.toFixed(1)} bps</span></div>
+        <div class="r"><span class="k">p95</span><span class="v mono good">${stats.quantiles.p95.toFixed(1)} bps</span></div>
+        <div class="r"><span class="k">p99</span><span class="v mono good">${stats.quantiles.p99.toFixed(1)} bps</span></div>
       </div>
     `;
   }

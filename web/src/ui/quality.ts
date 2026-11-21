@@ -62,8 +62,8 @@ export function renderQualityReport(
       </div>
 
       <!-- Top Metrics Banner: 4 KPI Cards -->
-      <div class="kpi-grid">
-        <div class="kpi-card">
+      <div class="kpi-grid kpis">
+        <div class="kpi-card card kpi">
           <span class="kpi-label">
             <span>Hourly Coverage</span>
             ${renderInfoTooltip({
@@ -79,7 +79,7 @@ export function renderQualityReport(
           <span class="kpi-sub font-tabular">${report.actual_rows.toLocaleString()} / ${report.expected_hours.toLocaleString()} expected hours</span>
         </div>
 
-        <div class="kpi-card">
+        <div class="kpi-card card kpi">
           <span class="kpi-label">
             <span>Checksum Verification</span>
             ${renderInfoTooltip({
@@ -94,7 +94,7 @@ export function renderQualityReport(
           <span class="kpi-sub font-tabular">${report.checksums_verified.toLocaleString()} / ${totalDownloaded.toLocaleString()} archives matched (${checksumPct}%)</span>
         </div>
 
-        <div class="kpi-card">
+        <div class="kpi-card card kpi">
           <span class="kpi-label">
             <span>Deduplicated Bars</span>
             ${renderInfoTooltip({
@@ -109,7 +109,7 @@ export function renderQualityReport(
           <span class="kpi-sub font-tabular">${report.quarantined_rows.length} invalid rows quarantined</span>
         </div>
 
-        <div class="kpi-card">
+        <div class="kpi-card card kpi">
           <span class="kpi-label">
             <span>Zero-Volume Bars</span>
             ${renderInfoTooltip({
@@ -129,7 +129,7 @@ export function renderQualityReport(
       <!-- Bento Grid: Ingestion Gotchas + Annual Observations -->
       <div class="bento-grid">
         <!-- Ingestion Gotchas Card -->
-        <div class="chart-card bento-col-6">
+        <div class="card chart-card bento-col-6">
           <div class="chart-card-header">
             <div>
               <div class="chart-card-title">
@@ -180,7 +180,7 @@ export function renderQualityReport(
         </div>
 
         <!-- Annual Bar Counts Card -->
-        <div class="chart-card bento-col-6">
+        <div class="card chart-card bento-col-6">
           <div class="chart-card-header">
             <div>
               <div class="chart-card-title">
@@ -237,7 +237,7 @@ export function renderQualityReport(
 
       <!-- Missing Gaps Section (if any) -->
       ${gapsCount > 0 ? `
-        <div class="chart-card">
+        <div class="card chart-card" style="margin-top: 12px;">
           <div class="chart-card-header">
             <div>
               <div class="chart-card-title text-warning">
@@ -285,7 +285,7 @@ export function renderQualityReport(
       ` : ''}
 
       <!-- Artifact Provenance Card -->
-      <div class="chart-card">
+      <div class="card chart-card" style="margin-top: 12px;">
         <div class="chart-card-header">
           <div>
             <div class="chart-card-title">

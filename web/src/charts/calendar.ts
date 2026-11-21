@@ -31,29 +31,32 @@ export function createCalendarView(
   container.innerHTML = `
     <div class="page-wrapper tab-enter calendar-view" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
       <!-- Monthly Returns Grid -->
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
-            <span>Monthly Return Matrix (Year × Month)</span>
-            ${renderInfoTooltip({
-              defId: 'calendar.monthly_returns',
-              title: 'Monthly Return Matrix & YTD Compounding',
-              description: 'Percentage price performance grouped by calendar month, with discrete geometrically compounded Year-to-Date (YTD) returns. Click any cell to inspect.',
-              caveat: 'Calendar months vary between 28 and 31 days (672 to 744 hourly bars). YTD uses exact discrete compounding.',
-              position: 'bottom',
-            })}
-            ${renderInspectTrigger('calendar.monthly_returns', { title: 'Inspect Monthly Return Matrix' })}
-          </h3>
+      <div class="card chart-card">
+        <div class="hd chart-card-header">
+          <div>
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Monthly Return Matrix (Year × Month)</span>
+              ${renderInfoTooltip({
+                defId: 'calendar.monthly_returns',
+                title: 'Monthly Return Matrix & YTD Compounding',
+                description: 'Percentage price performance grouped by calendar month, with discrete geometrically compounded Year-to-Date (YTD) returns. Click any cell to inspect.',
+                caveat: 'Calendar months vary between 28 and 31 days (672 to 744 hourly bars). YTD uses exact discrete compounding.',
+                position: 'bottom',
+              })}
+              ${renderInspectTrigger('calendar.monthly_returns', { title: 'Inspect Monthly Return Matrix' })}
+            </h3>
+            <small class="chart-card-subtitle text-muted">open→close · YTD = Π(1+r)−1</small>
+          </div>
         </div>
-        <div id="monthly-matrix-container" class="chart-card-body" style="overflow-x: auto;"></div>
+        <div id="monthly-matrix-container" class="bd chart-card-body" style="overflow-x: auto;"></div>
       </div>
 
       <!-- Drawdown Chart -->
-      <div class="chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
-        <div class="chart-card-header">
+      <div class="card chart-card" style="flex: 1; display: flex; flex-direction: column; min-height: 260px;">
+        <div class="hd chart-card-header">
           <div>
             <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
-              <span>Historical Underwater / Drawdown Chart</span>
+              <span>Underwater / Drawdown</span>
               ${renderInfoTooltip({
                 defId: 'calendar.drawdown_series',
                 title: 'High-Water Mark Drawdown Series',
@@ -63,13 +66,11 @@ export function createCalendarView(
               })}
               ${renderInspectTrigger('calendar.drawdown_series', { title: 'Inspect Drawdown Series' })}
             </h3>
-            <div class="chart-card-subtitle text-muted">
-              Calculated from high-water mark close prices
-            </div>
+            <small class="chart-card-subtitle text-muted">close vs running high-water mark</small>
           </div>
-          <div id="max-dd-stat" class="text-negative font-tabular" style="font-size: var(--text-sm); font-weight: 600; color: var(--color-negative); font-family: var(--font-mono, monospace);"></div>
+          <span id="max-dd-stat" class="sp badge red" style="margin-left: auto;"></span>
         </div>
-        <div id="drawdown-chart" class="chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 200px;"></div>
+        <div id="drawdown-chart" class="bd chart-card-body no-padding" style="flex: 1; width: 100%; min-height: 200px;"></div>
       </div>
     </div>
   `;
@@ -95,12 +96,12 @@ export function createCalendarView(
     }
 
     let html = `
-      <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; font-family: var(--font-mono, monospace);">
+      <table class="cal data-table" style="width: 100%;">
         <thead>
-          <tr style="border-bottom: 1px solid var(--border); color: var(--text-secondary);">
-            <th style="padding: 8px 6px; text-align: left;">Year</th>
-            ${MONTH_NAMES.map(m => `<th style="padding: 8px 6px;">${m}</th>`).join('')}
-            <th style="padding: 8px 6px; border-left: 1px solid var(--border); color: var(--text-primary);">YTD</th>
+          <tr>
+            <th style="padding: 6px; text-align: left;">Year</th>
+            ${MONTH_NAMES.map(m => `<th style="padding: 6px;">${m}</th>`).join('')}
+            <th style="padding: 6px;">YTD</th>
           </tr>
         </thead>
         <tbody>
@@ -110,8 +111,8 @@ export function createCalendarView(
       let ytdProduct = 1;
       let hasData = false;
 
-      let rowHtml = `<tr style="border-bottom: 1px solid var(--border);">
-        <td style="padding: 6px; text-align: left; font-weight: 600; color: var(--text-primary);">${y}</td>`;
+      let rowHtml = `<tr>
+        <td style="padding: 6px 8px; text-align: left; font-weight: 800; color: var(--ink);">${y}</td>`;
 
       for (let m = 0; m < 12; m++) {
         const key = `${y}-${m}`;
@@ -119,20 +120,20 @@ export function createCalendarView(
           hasData = true;
           const ret = lookup.get(key)!;
           ytdProduct *= 1 + ret / 100;
+          const a = Math.min(Math.abs(ret) / 30, 0.72);
           const bg = ret >= 0
-            ? `rgba(16, 185, 129, ${Math.min(Math.abs(ret) / 30, 0.65)})`
-            : `rgba(239, 68, 68, ${Math.min(Math.abs(ret) / 30, 0.65)})`;
-          const textColor = currentTheme === 'light' ? '#0f172a' : '#f8fafc';
-          rowHtml += `<td class="calendar-month-cell" data-inspect-def="calendar.monthly_returns" data-inspect-target="${y}-${String(m + 1).padStart(2, '0')}" style="padding: 6px; background: ${bg}; color: ${textColor}; font-weight: 500; cursor: pointer;" title="Inspect ${MONTH_NAMES[m]} ${y}">${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%</td>`;
+            ? `rgba(14, 159, 110, ${a})`
+            : `rgba(224, 36, 36, ${a})`;
+          const textColor = a > 0.4 ? '#ffffff' : 'var(--ink)';
+          rowHtml += `<td class="calendar-month-cell" data-inspect-def="calendar.monthly_returns" data-inspect-target="${y}-${String(m + 1).padStart(2, '0')}" style="background: ${bg}; color: ${textColor};" title="Inspect ${MONTH_NAMES[m]} ${y}">${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%</td>`;
         } else {
-          rowHtml += `<td style="padding: 6px; color: var(--text-muted);">—</td>`;
+          rowHtml += `<td class="na" style="color: var(--muted);">—</td>`;
         }
       }
 
       const ytdPct = hasData ? (ytdProduct - 1) * 100 : 0;
-      const ytdBg = ytdPct >= 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-      const ytdColor = ytdPct >= 0 ? 'var(--color-positive)' : 'var(--color-negative)';
-      rowHtml += `<td class="calendar-ytd-cell" data-inspect-def="calendar.ytd" data-inspect-target="${y}" style="padding: 6px; font-weight: 700; border-left: 1px solid var(--border); background: ${ytdBg}; color: ${ytdColor}; cursor: pointer;" title="Inspect ${y} YTD">${hasData ? `${ytdPct >= 0 ? '+' : ''}${ytdPct.toFixed(1)}%` : '—'}</td></tr>`;
+      const ytdColor = ytdPct >= 0 ? 'var(--green)' : 'var(--red)';
+      rowHtml += `<td class="ytd calendar-ytd-cell" data-inspect-def="calendar.ytd" data-inspect-target="${y}" style="color: ${ytdColor};" title="Inspect ${y} YTD">${hasData ? `${ytdPct >= 0 ? '+' : ''}${ytdPct.toFixed(1)}%` : '—'}</td></tr>`;
       html += rowHtml;
     }
 
@@ -143,7 +144,7 @@ export function createCalendarView(
   function renderDrawdown() {
     const colors = getChartTheme(currentTheme);
     const { series, maxDrawdownPct } = computeDrawdownSeries(currentData);
-    maxDdLabel.textContent = `Max Drawdown: ${maxDrawdownPct.toFixed(2)}%`;
+    maxDdLabel.textContent = `Max ${maxDrawdownPct >= 0 ? '+' : ''}${maxDrawdownPct.toFixed(2)}%`;
 
     const times = series.map(p => new Date(p.timeMs).toISOString().substring(0, 10));
     const vals = series.map(p => Number(p.drawdownPct.toFixed(2)));

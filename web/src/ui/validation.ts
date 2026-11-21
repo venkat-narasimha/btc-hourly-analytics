@@ -90,9 +90,9 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       </div>
 
       <!-- Domain Switcher (Segmented Control) -->
-      <div class="validation-domain-bar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+      <div class="validation-domain-bar seg" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface2);">
         ${DOMAINS.map((d) => `
-          <button type="button" class="btn btn-sm btn-domain-tab ${d.id === currentDomain ? 'btn-primary active' : 'btn-secondary'}" data-domain="${d.id}" title="${d.desc}">
+          <button type="button" class="btn btn-sm btn-domain-tab ${d.id === currentDomain ? 'btn-primary active on' : 'btn-secondary'}" data-domain="${d.id}" title="${d.desc}">
             ${d.label}
           </button>
         `).join('')}
@@ -108,7 +108,7 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       </div>
 
       <!-- Table Container -->
-      <div id="validation-table-mount" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; min-height: 400px;"></div>
+      <div id="validation-table-mount" class="card" style="padding: 14px; min-height: 400px;"></div>
     </div>
   `;
 
@@ -125,7 +125,7 @@ export function createValidationView(container: HTMLElement, getContext: () => V
     // Domain button states
     container.querySelectorAll<HTMLButtonElement>('.btn-domain-tab').forEach((btn) => {
       const isCurrent = btn.dataset.domain === currentDomain;
-      btn.className = `btn btn-sm btn-domain-tab ${isCurrent ? 'btn-primary active' : 'btn-secondary'}`;
+      btn.className = `btn btn-sm btn-domain-tab ${isCurrent ? 'btn-primary active on' : 'btn-secondary'}`;
     });
   }
 

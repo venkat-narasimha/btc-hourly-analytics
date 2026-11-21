@@ -30,10 +30,10 @@ export function createHeatmapView(
 
   container.innerHTML = `
     <div class="heatmap-view" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
-      <div class="filterbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div class="filterbar-group" style="display: flex; gap: 12px; align-items: center;">
-          <label class="filterbar-label" style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">Metric:</label>
-          <select id="heatmap-metric-select" class="styled-select" style="padding: 6px 10px; font-size: var(--text-sm); cursor: pointer;">
+      <div class="ctl" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 0;">
+        <div class="field">
+          <label>Metric</label>
+          <select id="heatmap-metric-select">
             <option value="mean_return">Mean Return (bps)</option>
             <option value="volatility">Volatility (σ, bps)</option>
             <option value="win_rate">Win Rate (%)</option>
@@ -43,21 +43,21 @@ export function createHeatmapView(
           </select>
           <span id="heatmap-selector-tooltip"></span>
         </div>
-        <span class="text-muted" style="font-size: var(--text-xs); color: var(--text-muted); font-style: italic;">
-          ~350–360 observations per cell · beware multiple testing & noise · returns in UTC
+        <span class="badge amber" style="margin-left: auto;">
+          ~360 obs / cell · multiple-testing caution · returns in UTC
         </span>
       </div>
-      <div class="chart-card" style="display: flex; flex-direction: column;">
-        <div class="chart-card-header">
+      <div class="card chart-card" style="display: flex; flex-direction: column;">
+        <div class="hd chart-card-header">
           <div>
-            <h3 class="chart-card-title" style="font-size: var(--text-md); font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px;">
+            <h3 class="chart-card-title" style="margin: 0; display: flex; align-items: center; gap: 6px;">
               <span>Hourly Seasonality Heatmap</span>
               <span id="heatmap-header-actions" style="display: inline-flex; align-items: center; gap: 4px;"></span>
             </h3>
-            <span class="chart-card-subtitle" style="font-size: var(--text-xs); color: var(--text-muted);">Day of Week × Hour of Day (UTC)</span>
+            <small class="chart-card-subtitle text-muted">Day of Week × Hour of Day (UTC)</small>
           </div>
         </div>
-        <div id="heatmap-chart" class="chart-card-body no-padding" style="width: 100%; height: 480px; min-height: 480px;"></div>
+        <div id="heatmap-chart" class="bd chart-card-body no-padding" style="width: 100%; height: 480px; min-height: 480px;"></div>
       </div>
     </div>
   `;
