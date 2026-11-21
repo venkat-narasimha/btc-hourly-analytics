@@ -1,20 +1,27 @@
 /**
- * Validation Section View (Phase V1).
+ * Validation Section View (Complete - Phase V2).
  * "Enumerable-Instance Validation Tables"
  *
- * Exposes every KPI and aggregate as interactive Tabulator tables with
- * exact instance drill-downs and live plain-language recompute proofs.
+ * Exposes every KPI, cyclical matrix, distribution moment, and series
+ * as interactive Tabulator tables with exact instance drill-downs,
+ * live plain-language recompute proofs, and CSV/Excel exports.
  */
 
-import type { KlineRow, Meta, QualityReport, ValidationDomain } from '../types';
+import type { KlineRow, Meta, QualityReport, SeasonalityMetric, ValidationDomain } from '../types';
 import { getAllMetricDefs, getMetricDef } from '../verify/registry';
 import { computeSeasonality, DOW_LABELS } from '../stats/aggregations';
+import {
+  computeHeatmap,
+  computeDistributionStats,
+  computeRollingVolatility,
+  computeCumulativeTakerDelta,
+  computeMonthlyReturns,
+  computeDrawdownSeries,
+} from '../stats/analytics';
 import { createValidationTable, type ValidationTableInstance } from '../validation/table';
 import { selectInstances } from '../validation/instances';
 import { openInspectDrawer } from '../verify/drawer';
 import type { ColumnDefinition } from 'tabulator-tables';
-
-type SeasonalityBucket = 'hour' | 'dow';
 
 export interface ValidationViewContext {
   data: KlineRow[];
@@ -25,15 +32,22 @@ export interface ValidationViewContext {
   initialDomain?: ValidationDomain;
 }
 
+type SeasonalityBucket = 'hour' | 'dow';
+
 const DOMAINS: Array<{ id: ValidationDomain; label: string; desc: string }> = [
   { id: 'kpis', label: 'KPIs', desc: 'Summary scalar indicators and macro metrics' },
   { id: 'seasonality', label: 'Seasonality', desc: 'Wide table across all 6 metrics by Hour & Day-of-Week' },
-  { id: 'raw', label: 'Raw Data', desc: 'All 60k raw 1h OHLCV bars across all 15 parquet columns' },
-  { id: 'heatmap', label: 'Heatmap', desc: '7×24 day-hour matrix cells' },
-  { id: 'volatility', label: 'Volatility', desc: 'Distribution moments, histogram bins, and rolling vol series' },
+  { id: 'heatmap', label: 'Heatmap', desc: '7×24 day-hour matrix (168 cells) with metric selector' },
+  { id: 'volatility', label: 'Volatility', desc: 'Distribution moments, 50-bin histogram, and rolling vol series' },
   { id: 'flow', label: 'Flow', desc: 'Hourly taker flow and cumulative taker delta (CVD) series' },
   { id: 'calendar', label: 'Calendar', desc: 'Monthly returns grid, YTD returns, and drawdown series' },
-  { id: 'quality', label: 'Quality', desc: 'Exchange gaps, coverage, and release provenance' },
+  { id: 'raw', label: 'Raw Data', desc: 'All 60k raw 1h OHLCV bars across all 15 parquet columns' },
+  { id: 'quality', label: 'Quality', desc: 'Exchange gaps, annual counts, and release provenance' },
+];
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 /**
@@ -54,7 +68,15 @@ export function createValidationView(container: HTMLElement, getContext: () => V
 } {
   let currentDomain: ValidationDomain = getContext().initialDomain || 'kpis';
   let activeTable: ValidationTableInstance | null = null;
+
+  // Domain sub-view state
   let seasonalityBucket: SeasonalityBucket = 'hour';
+  let heatmapMetric: SeasonalityMetric = 'mean_return';
+  let volatilitySubView: 'stats' | 'histogram' | 'series' = 'stats';
+  const rollingWindow = 168;
+  let flowSubView: 'hourly' | 'cvd' = 'hourly';
+  let calendarSubView: 'monthly' | 'ytd' | 'drawdown' = 'monthly';
+  let qualitySubView: 'gaps' | 'annual' | 'provenance' = 'gaps';
 
   container.innerHTML = `
     <div class="page-wrapper tab-enter">
@@ -76,12 +98,12 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       </div>
 
       <!-- Domain Description Banner -->
-      <div class="validation-domain-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div class="validation-domain-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
         <div>
           <h3 class="validation-domain-title" id="validation-domain-title" style="margin: 0; font-size: var(--text-md); font-weight: 600;"></h3>
           <p class="validation-domain-desc" id="validation-domain-desc" style="margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-muted);"></p>
         </div>
-        <div id="validation-domain-controls" style="display: flex; gap: 8px; align-items: center;"></div>
+        <div id="validation-domain-controls" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"></div>
       </div>
 
       <!-- Table Container -->
@@ -127,9 +149,20 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       case 'seasonality':
         renderSeasonalityDomain(rows, ctx);
         break;
-      default:
-        // Domains for Phase V2
-        renderUpcomingDomainPlaceholder(currentDomain);
+      case 'heatmap':
+        renderHeatmapDomain(rows, ctx);
+        break;
+      case 'volatility':
+        renderVolatilityDomain(rows, ctx);
+        break;
+      case 'flow':
+        renderFlowDomain(rows, ctx);
+        break;
+      case 'calendar':
+        renderCalendarDomain(rows, ctx);
+        break;
+      case 'quality':
+        renderQualityDomain(rows, ctx);
         break;
     }
   }
@@ -285,7 +318,6 @@ export function createValidationView(container: HTMLElement, getContext: () => V
 
   // 3. Seasonality Domain: Wide table with 6 metrics
   function renderSeasonalityDomain(rows: KlineRow[], ctx: ValidationViewContext) {
-    // Add sub-toggle for Hour vs Day-of-Week
     controlsEl.innerHTML = `
       <div class="seasonality-bucket-toggle" style="display: flex; gap: 4px; background: var(--bg-surface-elevated); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
         <button type="button" class="btn btn-sm ${seasonalityBucket === 'hour' ? 'btn-primary' : 'btn-ghost'}" id="btn-seasonality-hour">Hour (0–23 UTC)</button>
@@ -418,15 +450,794 @@ export function createValidationView(container: HTMLElement, getContext: () => V
     });
   }
 
-  function renderUpcomingDomainPlaceholder(domain: ValidationDomain) {
-    const d = DOMAINS.find((item) => item.id === domain)!;
-    mountEl.innerHTML = `
-      <div style="padding: 48px; text-align: center; color: var(--text-muted);">
-        <h4 style="font-size: var(--text-lg); margin-bottom: 8px; color: var(--text-primary);">${d.label} Validation Tables</h4>
-        <p style="max-width: 500px; margin: 0 auto 16px; font-size: var(--text-sm); line-height: 1.5;">${d.desc}</p>
-        <span class="badge badge-info font-mono">Phase V2 Scope</span>
+  // 4. Heatmap Domain: 168 cells with metric selector
+  function renderHeatmapDomain(rows: KlineRow[], ctx: ValidationViewContext) {
+    const metrics: Array<{ id: SeasonalityMetric; label: string }> = [
+      { id: 'mean_return', label: 'Mean Return (bps)' },
+      { id: 'volatility', label: 'Volatility (bps)' },
+      { id: 'win_rate', label: 'Win Rate (%)' },
+      { id: 'total_volume', label: 'Total Volume (BTC)' },
+      { id: 'taker_buy_ratio', label: 'Taker Ratio' },
+      { id: 'mean_hl_range', label: 'H-L Range (bps)' },
+    ];
+
+    controlsEl.innerHTML = `
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: var(--text-xs); color: var(--text-muted);">Metric:</span>
+        <select class="form-select form-select-sm" id="select-heatmap-metric" style="background: var(--bg-surface-elevated); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: var(--radius-sm); font-size: var(--text-xs);">
+          ${metrics.map((m) => `<option value="${m.id}" ${m.id === heatmapMetric ? 'selected' : ''}>${m.label}</option>`).join('')}
+        </select>
       </div>
     `;
+
+    controlsEl.querySelector<HTMLSelectElement>('#select-heatmap-metric')?.addEventListener('change', (e) => {
+      heatmapMetric = (e.target as HTMLSelectElement).value as SeasonalityMetric;
+      renderHeatmapDomain(rows, ctx);
+    });
+
+    const cells = computeHeatmap(rows, heatmapMetric);
+    const def = getMetricDef(`heatmap.${heatmapMetric}`) || getMetricDef('heatmap.mean_return')!;
+
+    const tableData = cells.map((c) => ({
+      cellKey: `${c.dow}:${c.hour}`,
+      dow: c.dow,
+      hour: c.hour,
+      dayLabel: DOW_LABELS[c.dow],
+      hourLabel: `${String(c.hour).padStart(2, '0')}:00 UTC`,
+      value: c.value,
+      formattedValue: def.format ? def.format(c.value) : c.value.toFixed(2),
+      n: c.n,
+    }));
+
+    const columns: ColumnDefinition[] = [
+      { title: 'Day of Week', field: 'dayLabel', width: 140, headerFilter: 'input' },
+      { title: 'Hour (UTC)', field: 'hourLabel', width: 130, headerFilter: 'input' },
+      {
+        title: 'Value',
+        field: 'formattedValue',
+        hozAlign: 'right',
+        formatter: (c) => `<span class="font-mono font-semibold">${c.getValue()}</span>`,
+      },
+      {
+        title: 'Observations (n)',
+        field: 'n',
+        hozAlign: 'right',
+        formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
+      },
+      {
+        title: 'Instances',
+        field: 'instances_view',
+        hozAlign: 'center',
+        width: 120,
+        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+      },
+    ];
+
+    activeTable = createValidationTable(mountEl, {
+      data: tableData,
+      columns,
+      exportFilename: `heatmap-${heatmapMetric}-cells`,
+      sheetName: 'Heatmap',
+      pageSize: 24,
+      onRowClick: (row) => {
+        const subset = selectInstances(rows, {
+          domain: 'heatmap',
+          cellKey: row.cellKey,
+        });
+
+        openInspectDrawer({
+          defId: def.id,
+          data: subset,
+          meta: ctx.meta,
+          qualityData: ctx.qualityData,
+          currentTab: 'validation',
+          metric: heatmapMetric,
+          target: row.cellKey,
+        });
+      },
+    });
+  }
+
+  // 5. Volatility Domain: Stats, Histogram, and Full Rolling Series
+  function renderVolatilityDomain(rows: KlineRow[], ctx: ValidationViewContext) {
+    controlsEl.innerHTML = `
+      <div style="display: flex; gap: 4px; background: var(--bg-surface-elevated); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+        <button type="button" class="btn btn-sm ${volatilitySubView === 'stats' ? 'btn-primary' : 'btn-ghost'}" id="btn-vol-stats">Distribution Stats</button>
+        <button type="button" class="btn btn-sm ${volatilitySubView === 'histogram' ? 'btn-primary' : 'btn-ghost'}" id="btn-vol-hist">Histogram (50 bins)</button>
+        <button type="button" class="btn btn-sm ${volatilitySubView === 'series' ? 'btn-primary' : 'btn-ghost'}" id="btn-vol-series">Rolling Vol Series</button>
+      </div>
+    `;
+
+    controlsEl.querySelector('#btn-vol-stats')?.addEventListener('click', () => {
+      volatilitySubView = 'stats';
+      renderVolatilityDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-vol-hist')?.addEventListener('click', () => {
+      volatilitySubView = 'histogram';
+      renderVolatilityDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-vol-series')?.addEventListener('click', () => {
+      volatilitySubView = 'series';
+      renderVolatilityDomain(rows, ctx);
+    });
+
+    const dist = computeDistributionStats(rows, 50);
+    const n = rows.filter((r) => r.log_ret !== null && r.log_ret !== undefined).length;
+
+    if (volatilitySubView === 'stats') {
+      const statsRows = dist
+        ? [
+            { stat: 'Mean Return (x̄)', value: `${dist.meanBps.toFixed(2)} bps`, defId: 'volatility.distribution_mean', n },
+            { stat: 'Sample Std Dev (s)', value: `${dist.stdBps.toFixed(2)} bps`, defId: 'volatility.distribution_std', n },
+            { stat: 'Skewness (g1)', value: dist.skewness.toFixed(4), defId: 'volatility.distribution_skewness', n },
+            { stat: 'Excess Kurtosis (g2)', value: dist.kurtosis.toFixed(4), defId: 'volatility.distribution_kurtosis', n },
+            { stat: 'p1 Percentile', value: `${dist.quantiles.p1.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+            { stat: 'p5 Percentile', value: `${dist.quantiles.p5.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+            { stat: 'p25 Percentile (Q1)', value: `${dist.quantiles.p25.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+            { stat: 'p50 Percentile (Median)', value: `${dist.quantiles.p50.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+            { stat: 'p75 Percentile (Q3)', value: `${dist.quantiles.p75.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+            { stat: 'p95 Percentile', value: `${dist.quantiles.p95.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+            { stat: 'p99 Percentile', value: `${dist.quantiles.p99.toFixed(2)} bps`, defId: 'volatility.quantiles', n },
+          ]
+        : [];
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Statistic', field: 'stat', formatter: (c) => `<strong>${c.getValue()}</strong>` },
+        { title: 'Value', field: 'value', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
+        { title: 'Observations (n)', field: 'n', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">View Returns &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: statsRows,
+        columns,
+        pagination: false,
+        exportFilename: 'volatility-stats-validation',
+        sheetName: 'VolStats',
+        onRowClick: (row) => {
+          openInspectDrawer({
+            defId: row.defId,
+            data: rows,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+          });
+        },
+      });
+    } else if (volatilitySubView === 'histogram') {
+      const hist = dist?.histogram || [];
+      const totalCount = hist.reduce((sum, b) => sum + b.count, 0);
+      const histRows = hist.map((b, idx) => ({
+        binIndex: idx + 1,
+        rangeBps: `${b.binStart.toFixed(1)} to ${b.binEnd.toFixed(1)} bps`,
+        binMin: b.binStart,
+        binMax: b.binEnd,
+        count: b.count,
+        pct: totalCount > 0 ? ((b.count / totalCount) * 100).toFixed(2) + '%' : '0.00%',
+      }));
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Bin #', field: 'binIndex', width: 80, hozAlign: 'center' },
+        { title: 'Return Range', field: 'rangeBps', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
+        { title: 'Observations (n)', field: 'count', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Share (%)', field: 'pct', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: histRows,
+        columns,
+        pageSize: 25,
+        exportFilename: 'volatility-histogram-50bins',
+        sheetName: 'Histogram',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'volatility',
+            binRange: [row.binMin, row.binMax],
+          });
+          openInspectDrawer({
+            defId: 'volatility.histogram',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            target: String(row.binIndex),
+          });
+        },
+      });
+    } else {
+      // Full rolling vol series (~60k rows)
+      const rollingPoints = computeRollingVolatility(rows, rollingWindow);
+      const seriesRows = rollingPoints.map((pt) => ({
+        timeMs: pt.timeMs,
+        timeUtc: formatUtc(pt.timeMs),
+        volBps: pt.volBps,
+        window: rollingWindow,
+      }));
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Time (UTC)', field: 'timeUtc', width: 160, headerFilter: 'input' },
+        { title: 'Window', field: 'window', width: 100, hozAlign: 'center', formatter: () => `${rollingWindow}h` },
+        {
+          title: 'Volatility (bps)',
+          field: 'volBps',
+          hozAlign: 'right',
+          formatter: (c) => `<span class="font-mono font-semibold">${Number(c.getValue()).toFixed(2)}</span>`,
+        },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: seriesRows,
+        columns,
+        pageSize: 25,
+        exportFilename: `rolling-volatility-${rollingWindow}h-series`,
+        sheetName: 'RollingVol',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'volatility',
+            openTimeMs: row.timeMs,
+            window: rollingWindow,
+          });
+          openInspectDrawer({
+            defId: 'volatility.rolling_vol',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            startMs: row.timeMs,
+            window: rollingWindow,
+          });
+        },
+      });
+    }
+  }
+
+  // 6. Flow Domain: Hourly Taker Ratio and Full CVD Series
+  function renderFlowDomain(rows: KlineRow[], ctx: ValidationViewContext) {
+    controlsEl.innerHTML = `
+      <div style="display: flex; gap: 4px; background: var(--bg-surface-elevated); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+        <button type="button" class="btn btn-sm ${flowSubView === 'hourly' ? 'btn-primary' : 'btn-ghost'}" id="btn-flow-hourly">Hourly Taker Ratio</button>
+        <button type="button" class="btn btn-sm ${flowSubView === 'cvd' ? 'btn-primary' : 'btn-ghost'}" id="btn-flow-cvd">CVD Full Series</button>
+      </div>
+    `;
+
+    controlsEl.querySelector('#btn-flow-hourly')?.addEventListener('click', () => {
+      flowSubView = 'hourly';
+      renderFlowDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-flow-cvd')?.addEventListener('click', () => {
+      flowSubView = 'cvd';
+      renderFlowDomain(rows, ctx);
+    });
+
+    if (flowSubView === 'hourly') {
+      const takerRatios = computeSeasonality(rows, 'hour', 'taker_buy_ratio');
+      const tableData = takerRatios.map((item) => ({
+        hour: item.bucket,
+        hourLabel: `${String(item.bucket).padStart(2, '0')}:00 UTC`,
+        takerRatio: item.value,
+        n: item.n,
+      }));
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Hour (UTC)', field: 'hourLabel', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>`, width: 140 },
+        {
+          title: 'Taker Buy Ratio',
+          field: 'takerRatio',
+          hozAlign: 'right',
+          formatter: (c) => `<span class="font-mono font-semibold">${Number(c.getValue()).toFixed(4)}</span>`,
+        },
+        {
+          title: 'Dominance',
+          field: 'takerRatio',
+          hozAlign: 'center',
+          width: 140,
+          formatter: (c) => {
+            const v = Number(c.getValue());
+            return v > 0.50
+              ? '<span class="badge badge-positive">Buyer Dominant</span>'
+              : '<span class="badge badge-warning">Seller Dominant</span>';
+          },
+        },
+        { title: 'Observations (n)', field: 'n', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: tableData,
+        columns,
+        pagination: false,
+        exportFilename: 'flow-hourly-taker-ratio',
+        sheetName: 'HourlyTakerRatio',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'flow',
+            bucketValue: row.hour,
+          });
+          openInspectDrawer({
+            defId: 'flow.taker_buy_ratio',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            bucket: 'hour',
+            target: String(row.hour),
+          });
+        },
+      });
+    } else {
+      // CVD Full series (~60k rows)
+      const cvdPoints = computeCumulativeTakerDelta(rows);
+      const seriesRows = cvdPoints.map((pt) => ({
+        timeMs: pt.timeMs,
+        timeUtc: formatUtc(pt.timeMs),
+        barDelta: pt.delta,
+        cumDelta: pt.cumDelta,
+      }));
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Time (UTC)', field: 'timeUtc', width: 160, headerFilter: 'input' },
+        {
+          title: 'Bar Delta (BTC)',
+          field: 'barDelta',
+          hozAlign: 'right',
+          formatter: (c) => {
+            const v = Number(c.getValue());
+            const cls = v >= 0 ? 'text-positive' : 'text-negative';
+            return `<span class="${cls} font-mono">${v >= 0 ? '+' : ''}${v.toFixed(2)}</span>`;
+          },
+        },
+        {
+          title: 'Cumulative Delta (BTC)',
+          field: 'cumDelta',
+          hozAlign: 'right',
+          formatter: (c) => `<span class="font-mono font-semibold">${Number(c.getValue()).toLocaleString('en-US', { maximumFractionDigits: 1 })}</span>`,
+        },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: seriesRows,
+        columns,
+        pageSize: 25,
+        exportFilename: 'flow-cvd-full-series',
+        sheetName: 'CVD',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'flow',
+            openTimeMs: row.timeMs,
+          });
+          openInspectDrawer({
+            defId: 'flow.cvd',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            startMs: row.timeMs,
+          });
+        },
+      });
+    }
+  }
+
+  // 7. Calendar Domain: Monthly Returns, YTD, and Drawdown Series
+  function renderCalendarDomain(rows: KlineRow[], ctx: ValidationViewContext) {
+    controlsEl.innerHTML = `
+      <div style="display: flex; gap: 4px; background: var(--bg-surface-elevated); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+        <button type="button" class="btn btn-sm ${calendarSubView === 'monthly' ? 'btn-primary' : 'btn-ghost'}" id="btn-cal-monthly">Monthly Returns</button>
+        <button type="button" class="btn btn-sm ${calendarSubView === 'ytd' ? 'btn-primary' : 'btn-ghost'}" id="btn-cal-ytd">Annual YTD</button>
+        <button type="button" class="btn btn-sm ${calendarSubView === 'drawdown' ? 'btn-primary' : 'btn-ghost'}" id="btn-cal-dd">Drawdown Series</button>
+      </div>
+    `;
+
+    controlsEl.querySelector('#btn-cal-monthly')?.addEventListener('click', () => {
+      calendarSubView = 'monthly';
+      renderCalendarDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-cal-ytd')?.addEventListener('click', () => {
+      calendarSubView = 'ytd';
+      renderCalendarDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-cal-dd')?.addEventListener('click', () => {
+      calendarSubView = 'drawdown';
+      renderCalendarDomain(rows, ctx);
+    });
+
+    if (calendarSubView === 'monthly') {
+      const monthlyReturns = computeMonthlyReturns(rows);
+      const tableData = monthlyReturns.map((m) => {
+        const ym = `${m.year}-${String(m.month + 1).padStart(2, '0')}`;
+        return {
+          yearMonth: ym,
+          year: m.year,
+          monthName: MONTH_NAMES[m.month],
+          startPrice: m.startPrice,
+          endPrice: m.endPrice,
+          returnPct: m.returnPct,
+        };
+      });
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Year', field: 'year', width: 90, hozAlign: 'center', headerFilter: 'input' },
+        { title: 'Month', field: 'monthName', width: 120 },
+        { title: 'First Open', field: 'startPrice', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        { title: 'Last Close', field: 'endPrice', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        {
+          title: 'Return (%)',
+          field: 'returnPct',
+          hozAlign: 'right',
+          formatter: (c) => {
+            const v = Number(c.getValue());
+            const cls = v >= 0 ? 'text-positive' : 'text-negative';
+            return `<span class="${cls} font-mono font-semibold">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+          },
+        },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: tableData,
+        columns,
+        pageSize: 20,
+        exportFilename: 'calendar-monthly-returns',
+        sheetName: 'MonthlyReturns',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'calendar',
+            yearMonth: row.yearMonth,
+          });
+          openInspectDrawer({
+            defId: 'calendar.monthly_returns',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            target: row.yearMonth,
+          });
+        },
+      });
+    } else if (calendarSubView === 'ytd') {
+      const monthlyReturns = computeMonthlyReturns(rows);
+      const byYear: Record<number, typeof monthlyReturns> = {};
+      for (const m of monthlyReturns) {
+        if (!byYear[m.year]) byYear[m.year] = [];
+        byYear[m.year].push(m);
+      }
+
+      const ytdRows = Object.keys(byYear)
+        .map(Number)
+        .sort((a, b) => b - a)
+        .map((yr) => {
+          const months = byYear[yr];
+          const firstOpen = months[0].startPrice;
+          const lastClose = months[months.length - 1].endPrice;
+          const ytdPct = ((lastClose - firstOpen) / firstOpen) * 100;
+
+          return {
+            year: yr,
+            firstOpen,
+            lastClose,
+            ytdPct,
+            monthCount: months.length,
+          };
+        });
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Year', field: 'year', width: 100, hozAlign: 'center', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
+        { title: 'Year Open', field: 'firstOpen', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        { title: 'Year Close', field: 'lastClose', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        {
+          title: 'Compounded YTD Return (%)',
+          field: 'ytdPct',
+          hozAlign: 'right',
+          formatter: (c) => {
+            const v = Number(c.getValue());
+            const cls = v >= 0 ? 'text-positive' : 'text-negative';
+            return `<span class="${cls} font-mono font-semibold">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+          },
+        },
+        { title: 'Months', field: 'monthCount', hozAlign: 'center', width: 90 },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: ytdRows,
+        columns,
+        pagination: false,
+        exportFilename: 'calendar-annual-ytd-returns',
+        sheetName: 'AnnualYTD',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'calendar',
+            year: row.year,
+          });
+          openInspectDrawer({
+            defId: 'calendar.ytd',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            target: String(row.year),
+          });
+        },
+      });
+    } else {
+      // Drawdown full series (~60k rows)
+      const ddData = computeDrawdownSeries(rows);
+      const seriesRows = ddData.series.map((pt) => ({
+        timeMs: pt.timeMs,
+        timeUtc: formatUtc(pt.timeMs),
+        close: pt.close,
+        peak: pt.peak,
+        drawdownPct: pt.drawdownPct,
+      }));
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Time (UTC)', field: 'timeUtc', width: 160, headerFilter: 'input' },
+        { title: 'Close Price', field: 'close', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        { title: 'High-Water Mark', field: 'peak', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        {
+          title: 'Drawdown (%)',
+          field: 'drawdownPct',
+          hozAlign: 'right',
+          formatter: (c) => {
+            const v = Number(c.getValue());
+            return `<span class="text-negative font-mono">${v.toFixed(2)}%</span>`;
+          },
+        },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: seriesRows,
+        columns,
+        pageSize: 25,
+        exportFilename: 'historical-drawdown-series',
+        sheetName: 'Drawdown',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'calendar',
+            openTimeMs: row.timeMs,
+          });
+          openInspectDrawer({
+            defId: 'calendar.drawdown_series',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            startMs: row.timeMs,
+          });
+        },
+      });
+    }
+  }
+
+  // 8. Quality Domain: Gaps, Annual Counts, Provenance
+  function renderQualityDomain(rows: KlineRow[], ctx: ValidationViewContext) {
+    controlsEl.innerHTML = `
+      <div style="display: flex; gap: 4px; background: var(--bg-surface-elevated); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+        <button type="button" class="btn btn-sm ${qualitySubView === 'gaps' ? 'btn-primary' : 'btn-ghost'}" id="btn-qual-gaps">Exchange Gaps</button>
+        <button type="button" class="btn btn-sm ${qualitySubView === 'annual' ? 'btn-primary' : 'btn-ghost'}" id="btn-qual-annual">Annual Observations</button>
+        <button type="button" class="btn btn-sm ${qualitySubView === 'provenance' ? 'btn-primary' : 'btn-ghost'}" id="btn-qual-prov">Provenance Lineage</button>
+      </div>
+    `;
+
+    controlsEl.querySelector('#btn-qual-gaps')?.addEventListener('click', () => {
+      qualitySubView = 'gaps';
+      renderQualityDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-qual-annual')?.addEventListener('click', () => {
+      qualitySubView = 'annual';
+      renderQualityDomain(rows, ctx);
+    });
+    controlsEl.querySelector('#btn-qual-prov')?.addEventListener('click', () => {
+      qualitySubView = 'provenance';
+      renderQualityDomain(rows, ctx);
+    });
+
+    const report = ctx.qualityData;
+
+    if (qualitySubView === 'gaps') {
+      const gaps = report?.missing_ranges || [];
+      const gapsRows = gaps.map((g, idx) => ({
+        index: idx + 1,
+        startUtc: formatUtc(g.start_ms),
+        endUtc: formatUtc(g.end_ms),
+        startMs: g.start_ms,
+        endMs: g.end_ms,
+        hours: g.hours,
+      }));
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Gap #', field: 'index', width: 80, hozAlign: 'center' },
+        { title: 'Outage Start (UTC)', field: 'startUtc', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
+        { title: 'Outage End (UTC)', field: 'endUtc', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
+        { title: 'Missing Hours', field: 'hours', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-warning font-semibold">${c.getValue()}h</span>` },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 130,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect Bounding &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: gapsRows,
+        columns,
+        pagination: false,
+        exportFilename: 'quality-exchange-gaps',
+        sheetName: 'Gaps',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'quality',
+            gapStartMs: row.startMs,
+            gapEndMs: row.endMs,
+          });
+          openInspectDrawer({
+            defId: 'quality.gaps',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            startMs: row.startMs,
+            endMs: row.endMs,
+          });
+        },
+      });
+    } else if (qualitySubView === 'annual') {
+      const perYear = report?.per_year_row_counts || {};
+      const annualRows = Object.keys(perYear)
+        .map(Number)
+        .sort((a, b) => b - a)
+        .map((yr) => {
+          const count = perYear[String(yr)];
+          const isLeap = (yr % 4 === 0 && yr % 100 !== 0) || yr % 400 === 0;
+          const expected = yr === new Date().getUTCFullYear() ? count : isLeap ? 8784 : 8760;
+          const covPct = Math.min(100, (count / expected) * 100);
+
+          return {
+            year: yr,
+            rows: count,
+            expected,
+            covPct: covPct.toFixed(2) + '%',
+            status: covPct >= 99 ? 'Institutional Grade' : 'Minor Gaps Present',
+          };
+        });
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Year', field: 'year', width: 100, hozAlign: 'center', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
+        { title: 'Loaded Bars (n)', field: 'rows', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Expected Hours', field: 'expected', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Coverage (%)', field: 'covPct', hozAlign: 'right', formatter: (c) => `<span class="font-mono font-semibold">${c.getValue()}</span>` },
+        {
+          title: 'Audit Status',
+          field: 'status',
+          hozAlign: 'center',
+          formatter: (c) => `<span class="badge ${String(c.getValue()).includes('Grade') ? 'badge-positive' : 'badge-warning'}">${c.getValue()}</span>`,
+        },
+        {
+          title: 'Instances',
+          field: 'instances_view',
+          hozAlign: 'center',
+          width: 120,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">View Bars &rarr;</button>`,
+        },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: annualRows,
+        columns,
+        pagination: false,
+        exportFilename: 'quality-annual-counts',
+        sheetName: 'AnnualCounts',
+        onRowClick: (row) => {
+          const subset = selectInstances(rows, {
+            domain: 'quality',
+            year: row.year,
+          });
+          openInspectDrawer({
+            defId: 'kpi.per_year_counts',
+            data: subset,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+            target: String(row.year),
+          });
+        },
+      });
+    } else {
+      // Provenance lineage
+      const meta = ctx.meta;
+      const provRows = [
+        { property: 'Release Identifier', value: meta?.release_id || 'unknown' },
+        { property: 'Pipeline Git SHA', value: meta?.pipeline_git_sha || 'unknown' },
+        { property: 'Artifact SHA-256 Checksum', value: meta?.artifact_sha256 || 'Calculated during server-side export' },
+        { property: 'Dataset Generation (UTC)', value: meta?.generated_at_utc || 'unknown' },
+        { property: 'Source Archive Ingest', value: `${meta?.files_downloaded?.monthly ?? 0} monthly + ${meta?.files_downloaded?.daily ?? 0} daily ZIPs` },
+        { property: 'Binance Source Base URL', value: meta?.source_base_url || 'https://data.binance.vision' },
+        { property: 'Hourly Candlestick Total', value: `${rows.length.toLocaleString()} rows` },
+      ];
+
+      const columns: ColumnDefinition[] = [
+        { title: 'Provenance Property', field: 'property', width: 260, formatter: (c) => `<strong>${c.getValue()}</strong>` },
+        { title: 'Verified Release Value', field: 'value', formatter: (c) => `<span class="font-mono">${escapeHtml(String(c.getValue()))}</span>` },
+      ];
+
+      activeTable = createValidationTable(mountEl, {
+        data: provRows,
+        columns,
+        pagination: false,
+        exportFilename: 'quality-provenance-lineage',
+        sheetName: 'Provenance',
+        onRowClick: () => {
+          openInspectDrawer({
+            defId: 'quality.provenance',
+            data: rows,
+            meta: ctx.meta,
+            qualityData: ctx.qualityData,
+            currentTab: 'validation',
+          });
+        },
+      });
+    }
+  }
+
+  function escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // Domain switcher clicks

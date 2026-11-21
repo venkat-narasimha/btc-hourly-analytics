@@ -79,4 +79,54 @@ describe('Instance Selectors (instances.ts)', () => {
     expect(instances[0].open_time_ms).toBe(rows[0].open_time_ms);
     expect(instances[1].open_time_ms).toBe(rows[rows.length - 1].open_time_ms);
   });
+
+  it('selects volatility histogram bin instances within range', () => {
+    const instances = selectInstances(rows, { domain: 'volatility', binRange: [0.0004, 0.0006] });
+    expect(instances.length).toBe(47); // All non-null log_ret rows are 0.0005
+    for (const r of instances) {
+      expect(r.log_ret).toBeGreaterThanOrEqual(0.0004);
+      expect(r.log_ret).toBeLessThanOrEqual(0.0006);
+    }
+  });
+
+  it('selects volatility rolling window ending at openTimeMs', () => {
+    const target = rows[30].open_time_ms;
+    const instances = selectInstances(rows, { domain: 'volatility', openTimeMs: target, window: 24 });
+    expect(instances.length).toBe(24);
+    expect(instances[instances.length - 1].open_time_ms).toBe(target);
+  });
+
+  it('selects flow hourly taker ratio instances by hour', () => {
+    const instances = selectInstances(rows, { domain: 'flow', bucketValue: 10 });
+    expect(instances.length).toBe(2);
+    for (const r of instances) {
+      expect(r.hour).toBe(10);
+    }
+  });
+
+  it('selects flow CVD instances for target openTimeMs', () => {
+    const target = rows[10].open_time_ms;
+    const instances = selectInstances(rows, { domain: 'flow', openTimeMs: target });
+    expect(instances.length).toBe(1);
+    expect(instances[0].open_time_ms).toBe(target);
+  });
+
+  it('selects calendar monthly instances by yearMonth', () => {
+    const instances = selectInstances(rows, { domain: 'calendar', yearMonth: '2024-01' });
+    expect(instances.length).toBe(48); // All mock rows are in 2024-01
+  });
+
+  it('selects calendar annual instances by year', () => {
+    const instances = selectInstances(rows, { domain: 'calendar', year: 2024 });
+    expect(instances.length).toBe(48);
+  });
+
+  it('selects quality gap bounding bars around missing timestamp', () => {
+    const gapStart = rows[10].open_time_ms;
+    const gapEnd = rows[12].open_time_ms;
+    const instances = selectInstances(rows, { domain: 'quality', gapStartMs: gapStart, gapEndMs: gapEnd });
+    expect(instances.length).toBe(2);
+    expect(instances[0].open_time_ms).toBe(gapStart);
+    expect(instances[1].open_time_ms).toBe(gapEnd);
+  });
 });

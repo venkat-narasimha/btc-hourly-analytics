@@ -16,6 +16,8 @@ export interface InstanceScope {
   openTimeMs?: number;
   window?: number;
   binRange?: [number, number]; // [min, max]
+  gapStartMs?: number;
+  gapEndMs?: number;
 }
 
 /**
@@ -113,6 +115,18 @@ export function selectInstances(rows: KlineRow[], scope: InstanceScope): KlineRo
     }
     if (openTimeMs !== undefined) {
       return rows.filter((r) => r.open_time_ms === openTimeMs);
+    }
+  }
+
+  // 7. Quality domain
+  if (domain === 'quality') {
+    if (scope.gapStartMs !== undefined && scope.gapEndMs !== undefined) {
+      return rows.filter(
+        (r) => r.open_time_ms === scope.gapStartMs || r.open_time_ms === scope.gapEndMs
+      );
+    }
+    if (year !== undefined) {
+      return rows.filter((r) => new Date(r.open_time_ms).getUTCFullYear() === year);
     }
   }
 
