@@ -79,10 +79,13 @@ export function createSidebar(
   container.innerHTML = `
     <div class="brand">
       <div class="mark">₿</div>
-      <div>
+      <div style="flex: 1;">
         <b>BTC Analytics</b>
         <small>1h · Binance Futures</small>
       </div>
+      <button type="button" class="sidebar-close-btn" id="sidebar-close-btn" aria-label="Close navigation">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l10 10M13 3l-10 10"/></svg>
+      </button>
     </div>
     <div class="navlabel">ANALYTICS</div>
     <nav class="nav sidebar-nav" id="sidebar-nav">
@@ -96,6 +99,13 @@ export function createSidebar(
     </div>
   `;
 
+  // Close button
+  const closeBtn = container.querySelector<HTMLButtonElement>('#sidebar-close-btn');
+  closeBtn?.addEventListener('click', () => {
+    container.classList.remove('on', 'open');
+    document.getElementById('sidebar-scrim')?.classList.remove('on', 'open');
+  });
+
   // Nav item clicks
   const navItems = container.querySelectorAll<HTMLButtonElement>('.sidebar-nav-item');
   navItems.forEach(btn => {
@@ -107,9 +117,9 @@ export function createSidebar(
       });
       btn.classList.add('active');
       btn.classList.add('on');
-      // On mobile viewports, close sidebar drawer
-      container.classList.remove('on');
-      container.classList.remove('open');
+      // On mobile viewports, close sidebar drawer and scrim
+      container.classList.remove('on', 'open');
+      document.getElementById('sidebar-scrim')?.classList.remove('on', 'open');
       callbacks.onTabChange(tab);
     });
   });

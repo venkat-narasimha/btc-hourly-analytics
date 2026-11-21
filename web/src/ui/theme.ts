@@ -5,10 +5,11 @@
 import type { Theme } from '../types';
 
 const THEME_STORAGE_KEY = 'btc_analytics_theme';
+const LEGACY_THEME_STORAGE_KEY = 'btc_theme';
 
 export function getInitialTheme(): Theme {
   try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    const saved = localStorage.getItem(THEME_STORAGE_KEY) || localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
     if (saved === 'dark' || saved === 'light') return saved;
   } catch {
     // ignore
@@ -19,6 +20,7 @@ export function getInitialTheme(): Theme {
 export function saveTheme(theme: Theme): void {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
+    localStorage.setItem(LEGACY_THEME_STORAGE_KEY, theme);
   } catch {
     // ignore
   }

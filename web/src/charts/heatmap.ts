@@ -145,8 +145,8 @@ export function createHeatmapView(
         max: absMax,
         inRange: {
           color: currentTheme === 'light'
-            ? ['#ef4444', '#f1f5f9', '#10b981']
-            : ['#ef4444', '#1e293b', '#10b981'],
+            ? ['#E02424', '#ECE4D0', '#0E9F6E']
+            : ['#F87171', '#181410', '#34D399'],
         },
       };
     } else {
@@ -154,8 +154,8 @@ export function createHeatmapView(
         ...visualMapOpts,
         inRange: {
           color: currentTheme === 'light'
-            ? ['#f8fafc', '#bfdbfe', '#60a5fa', '#2563eb', '#1e3a8a']
-            : ['#0f172a', '#1e3a8a', '#3b82f6', '#38bdf8', '#f8fafc'],
+            ? ['#ECE4D0', '#FDE68A', '#F59E0B', '#D97706', '#92400E']
+            : ['#181410', '#3D2808', '#78350F', '#D97706', '#FBBF24'],
         },
       };
     }
@@ -180,28 +180,14 @@ export function createHeatmapView(
       xAxis: {
         type: 'category',
         data: hours,
-        splitArea: {
-          show: true,
-          areaStyle: {
-            color: currentTheme === 'light'
-              ? ['rgba(0, 0, 0, 0.01)', 'rgba(0, 0, 0, 0.03)']
-              : ['rgba(255, 255, 255, 0.01)', 'rgba(255, 255, 255, 0.02)'],
-          },
-        },
+        splitArea: { show: false },
         axisLine: { lineStyle: { color: colors.borderColor } },
         axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
       yAxis: {
         type: 'category',
         data: DOW_LABELS,
-        splitArea: {
-          show: true,
-          areaStyle: {
-            color: currentTheme === 'light'
-              ? ['rgba(0, 0, 0, 0.01)', 'rgba(0, 0, 0, 0.03)']
-              : ['rgba(255, 255, 255, 0.01)', 'rgba(255, 255, 255, 0.02)'],
-          },
-        },
+        splitArea: { show: false },
         axisLine: { lineStyle: { color: colors.borderColor } },
         axisLabel: { color: colors.textSecondary, fontSize: 11 },
       },
@@ -210,12 +196,17 @@ export function createHeatmapView(
         {
           type: 'heatmap',
           data: seriesData,
+          itemStyle: {
+            borderColor: currentTheme === 'light' ? '#FFFFFF' : '#181410',
+            borderWidth: 1.5,
+            borderRadius: 2,
+          },
           emphasis: {
             itemStyle: {
               shadowBlur: 10,
               shadowColor: 'rgba(0, 0, 0, 0.3)',
               borderColor: colors.textColor,
-              borderWidth: 1,
+              borderWidth: 1.5,
             },
           },
         },

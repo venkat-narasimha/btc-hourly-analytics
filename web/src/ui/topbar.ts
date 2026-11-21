@@ -57,9 +57,15 @@ export function createTopbar(
   const menuBtn = container.querySelector<HTMLButtonElement>('#menu-toggle');
   menuBtn?.addEventListener('click', () => {
     const sidebar = document.getElementById('app-sidebar');
+    const scrim = document.getElementById('sidebar-scrim');
     if (sidebar) {
-      sidebar.classList.toggle('on');
-      sidebar.classList.toggle('open');
+      const isOpen = sidebar.classList.contains('on') || sidebar.classList.contains('open');
+      sidebar.classList.toggle('on', !isOpen);
+      sidebar.classList.toggle('open', !isOpen);
+      if (scrim) {
+        scrim.classList.toggle('on', !isOpen);
+        scrim.classList.toggle('open', !isOpen);
+      }
     }
   });
 

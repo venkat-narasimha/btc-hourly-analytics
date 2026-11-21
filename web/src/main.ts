@@ -420,6 +420,7 @@ async function init() {
   const appEl = document.querySelector<HTMLDivElement>('#app')!;
   appEl.innerHTML = `
     <aside id="app-sidebar" class="app-sidebar" data-collapsed="false"></aside>
+    <div id="sidebar-scrim" class="scrim" aria-hidden="true"></div>
     <div class="app-main">
       <header id="app-topbar" class="app-topbar"></header>
       <main id="main-content" class="app-content" style="position: relative;"></main>
@@ -428,6 +429,11 @@ async function init() {
 
   // 3. Mount sidebar
   const sidebarEl = document.getElementById('app-sidebar')!;
+  const scrimEl = document.getElementById('sidebar-scrim')!;
+  scrimEl.addEventListener('click', () => {
+    sidebarEl.classList.remove('on', 'open');
+    scrimEl.classList.remove('on', 'open');
+  });
   sidebarInstance = createSidebar(sidebarEl, 'overview', currentTheme, {
     onTabChange: (tab) => {
       mountTab(tab);
