@@ -7,6 +7,7 @@ import type { TabId, Theme } from '../types';
 export interface SidebarCallbacks {
   onTabChange(tab: TabId): void;
   onThemeChange(theme: Theme): void;
+  onFullTour?(): void;
 }
 
 const NAV_ITEMS: Array<{ tab: TabId; label: string; icon: string }> = [
@@ -92,12 +93,23 @@ export function createSidebar(
       ${navItemsHtml}
     </nav>
     <div class="railfoot sidebar-footer">
+      <button type="button" class="btn btn-sm tour-full-btn" id="btn-full-tour" title="Launch complete walkthrough across all 9 tabs">
+        ✦ Full App Tour
+      </button>
       <div class="themeswitch" id="theme-switch">
         <button type="button" class="theme-btn${initialTheme === 'light' ? ' on active' : ''}" data-theme-val="light" title="Light Theme">☀ Light</button>
         <button type="button" class="theme-btn${initialTheme === 'dark' ? ' on active' : ''}" data-theme-val="dark" title="Dark Theme">☾ Dark</button>
       </div>
     </div>
   `;
+
+  // Full Tour button
+  const fullTourBtn = container.querySelector<HTMLButtonElement>('#btn-full-tour');
+  fullTourBtn?.addEventListener('click', () => {
+    container.classList.remove('on', 'open');
+    document.getElementById('sidebar-scrim')?.classList.remove('on', 'open');
+    callbacks.onFullTour?.();
+  });
 
   // Close button
   const closeBtn = container.querySelector<HTMLButtonElement>('#sidebar-close-btn');

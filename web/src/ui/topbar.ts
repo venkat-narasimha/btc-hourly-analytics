@@ -35,7 +35,8 @@ function pill(value: string, label: string, extraClass?: string): string {
 
 export function createTopbar(
   container: HTMLElement,
-  initialPageInfo: { title: string; subtitle: string }
+  initialPageInfo: { title: string; subtitle: string },
+  callbacks?: { onPageGuide?: () => void }
 ): {
   updatePageInfo(title: string, subtitle: string): void;
   updateStats(stats: TopbarStats): void;
@@ -48,11 +49,21 @@ export function createTopbar(
       </svg>
     </button>
     <div class="tb-title topbar-left">
-      <b class="topbar-page-title" id="topbar-page-title">${initialPageInfo.title}</b>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <b class="topbar-page-title" id="topbar-page-title">${initialPageInfo.title}</b>
+        <button type="button" class="btn btn-sm btn-page-guide" id="btn-page-guide" title="Tour this view">
+          <span>✦ Page Guide</span>
+        </button>
+      </div>
       <small class="topbar-page-sub" id="topbar-page-sub">${initialPageInfo.subtitle}</small>
     </div>
     <div class="pills topbar-stats" id="topbar-stats"></div>
   `;
+
+  const pageGuideBtn = container.querySelector<HTMLButtonElement>('#btn-page-guide');
+  pageGuideBtn?.addEventListener('click', () => {
+    callbacks?.onPageGuide?.();
+  });
 
   const menuBtn = container.querySelector<HTMLButtonElement>('#menu-toggle');
   menuBtn?.addEventListener('click', () => {

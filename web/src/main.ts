@@ -19,6 +19,7 @@ import { createFilterbar, type Preset } from './ui/filterbar';
 import { createOverviewPage } from './ui/overview';
 import { renderQualityReport } from './ui/quality';
 import { setupTooltipInteractions } from './ui/tooltip';
+import { TourEngine } from './ui/tour';
 import {
   renderOverviewSkeleton,
   renderChartPageSkeleton,
@@ -98,6 +99,7 @@ saveTheme(currentTheme);
 let activeChartInstance: { destroy(): void } | null = null;
 let sidebarInstance: ReturnType<typeof createSidebar> | null = null;
 let topbarInstance: ReturnType<typeof createTopbar> | null = null;
+let tourEngine: TourEngine | null = null;
 
 function setStepDone(stepId: string) {
   const el = document.getElementById(stepId);
@@ -434,6 +436,22 @@ async function init() {
     sidebarEl.classList.remove('on', 'open');
     scrimEl.classList.remove('on', 'open');
   });
+
+  tourEngine = new TourEngine({
+    onTabChange: (tab) => {
+      mountTab(tab);
+      sidebarInstance?.setActiveTab(tab);
+    },
+    onOpenVerifyDrawer: (defId) => {
+      openInspectDrawer({
+        defId,
+        data: filteredData,
+        meta: metaData,
+        qualityData,
+      });
+    },
+  });
+
   sidebarInstance = createSidebar(sidebarEl, 'overview', currentTheme, {
     onTabChange: (tab) => {
       mountTab(tab);
@@ -451,11 +469,18 @@ async function init() {
         renderQualityReport(document.getElementById('main-content')!, metaData, qualityData);
       }
     },
+    onFullTour: () => {
+      tourEngine?.startGlobalTour();
+    },
   });
 
   // 4. Mount topbar
   const topbarEl = document.getElementById('app-topbar')!;
-  topbarInstance = createTopbar(topbarEl, PAGE_INFO['overview']);
+  topbarInstance = createTopbar(topbarEl, PAGE_INFO['overview'], {
+    onPageGuide: () => {
+      tourEngine?.startPageTour(activeTab);
+    },
+  });
 
   // 5. Display branded loading state
   const mainContent = document.getElementById('main-content')!;
@@ -549,6 +574,11 @@ async function init() {
     const restored = handleProofLink();
     if (!restored) {
       mountTab('overview');
+      if (tourEngine && tourEngine.shouldAutoStartGlobal()) {
+        setTimeout(() => {
+          tourEngine?.startGlobalTour();
+        }, 900);
+      }
     }
   } catch (err: any) {
     mainContent.innerHTML = `
