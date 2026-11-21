@@ -7,7 +7,7 @@
 import { asyncBufferFromUrl, parquetReadObjects } from 'hyparquet';
 import type { KlineRow, Meta, QualityReport } from '../types';
 
-const DATA_BASE = '/data/current';
+const DATA_BASE = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/data/current`;
 
 export async function fetchMeta(): Promise<Meta> {
   const resp = await fetch(`${DATA_BASE}/meta.json`, { cache: 'no-cache' });

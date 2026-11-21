@@ -12,6 +12,9 @@ RUN npm ci
 # Copy web source code
 COPY web/ ./
 
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+
 # Build production assets
 RUN npm run build
 
@@ -21,8 +24,9 @@ FROM nginx:alpine
 # Remove default nginx static files
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built SPA from builder stage
+# Copy built SPA from builder stage to root and /btc
 COPY --from=builder /app/dist /usr/share/nginx/html
+RUN mkdir -p /usr/share/nginx/html/btc && cp -r /usr/share/nginx/html/* /usr/share/nginx/html/btc/
 
 # Copy custom nginx configuration
 COPY docker/nginx.conf /etc/nginx/nginx.conf
