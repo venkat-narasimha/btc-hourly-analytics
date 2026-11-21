@@ -365,7 +365,7 @@ exports[`Metric Registry (Phase A) > matches snapshot per metric definition 1`] 
   },
   {
     "conventions": [
-      "Summary-only parity: n, min, max (bins are visual formatting)",
+      "Summary-only verification: n, min, max (bins are visual formatting)",
       "Equal-width binning spanning min to max observed return",
     ],
     "formula": "Partition of return range into 50 equal-width bins",

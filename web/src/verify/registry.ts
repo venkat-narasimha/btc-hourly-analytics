@@ -1,9 +1,9 @@
 /**
- * Definition Registry for Verification Playground.
+ * Definition Registry for Validation Tables.
  * Keystone of the verification system (Phase A).
  *
  * Rules:
- * - Single typed source of truth for tooltips, drawers, SQL, and manifest.
+ * - Single typed source of truth for tooltips, drawers, and validation tables.
  * - Computations MUST wrap existing tested functions in aggregations.ts, analytics.ts, and display.ts.
  * - Never reimplement statistical math.
  */
@@ -117,36 +117,12 @@ export interface MetricDef {
     params?: Record<string, any>,
     context?: { meta?: Meta | null; qualityData?: QualityReport | null }
   ): Result;
-  sql?(params: Record<string, any>): string; // Phase B
   tolerance: { rel: number; abs: number };
   format(val: any): string;
 }
 
 const DEFAULT_TOLERANCE = { rel: 1e-9, abs: 1e-9 };
 
-/**
- * Builds safe, parameterized SQL WHERE clause for DuckDB cross-checks.
- * Only accepts validated numeric or enum values.
- */
-export function buildSqlWhere(params?: Record<string, any>, extraCondition?: string): string {
-  const clauses: string[] = [];
-  if (params) {
-    const hasStart = params.startMs !== undefined && params.startMs !== null && !isNaN(Number(params.startMs));
-    const hasEnd = params.endMs !== undefined && params.endMs !== null && !isNaN(Number(params.endMs));
-    if (hasStart && hasEnd) {
-      clauses.push(`open_time_ms BETWEEN ${Math.floor(Number(params.startMs))} AND ${Math.floor(Number(params.endMs))}`);
-    } else if (hasStart) {
-      clauses.push(`open_time_ms >= ${Math.floor(Number(params.startMs))}`);
-    } else if (hasEnd) {
-      clauses.push(`open_time_ms <= ${Math.floor(Number(params.endMs))}`);
-    }
-  }
-  if (extraCondition) {
-    clauses.push(extraCondition);
-  }
-  if (clauses.length === 0) return '';
-  return `WHERE ${clauses.join(' AND ')}`;
-}
 
 // Helper formatters
 function formatPct(v: any): string {
@@ -226,7 +202,6 @@ registerMetricDef({
     n: rows.length,
     trace: { total_count: rows.length },
   }),
-  sql: (p) => `SELECT COUNT(*) AS value FROM klines ${buildSqlWhere(p)};`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatCount,
 });
@@ -254,7 +229,6 @@ registerMetricDef({
       trace: { first_ms: firstMs, last_ms: lastMs, span_ms: lastMs - firstMs, span_years: years },
     };
   },
-  sql: (p) => `SELECT (MAX(open_time_ms) - MIN(open_time_ms)) / (86400000.0 * 365.25) AS value FROM klines ${buildSqlWhere(p)};`,
   tolerance: DEFAULT_TOLERANCE,
   format: (v) => `${Number(v).toFixed(1)} years`,
 });
@@ -310,7 +284,6 @@ registerMetricDef({
       trace: { open_time_ms: last.open_time_ms, close_price: last.close },
     };
   },
-  sql: (p) => `SELECT close AS value FROM klines ${buildSqlWhere(p)} ORDER BY open_time_ms DESC LIMIT 1;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatUSD,
 });
@@ -343,7 +316,6 @@ registerMetricDef({
       },
     };
   },
-  sql: (p) => `SELECT ((arg_max(close, open_time_ms) - arg_min(open, open_time_ms)) / arg_min(open, open_time_ms)) * 100.0 AS value FROM klines ${buildSqlWhere(p)};`,
   tolerance: DEFAULT_TOLERANCE,
   format: (v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`,
 });
@@ -379,12 +351,6 @@ registerMetricDef({
       },
     };
   },
-  sql: (p) => `WITH hwm AS (
-  SELECT close,
-         MAX(close) OVER (ORDER BY open_time_ms ROWS UNBOUNDED PRECEDING) AS peak
-  FROM klines ${buildSqlWhere(p)}
-)
-SELECT COALESCE(MIN(((close - peak) / peak) * 100.0), 0.0) AS value FROM hwm;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatPct,
 });
@@ -410,11 +376,6 @@ registerMetricDef({
       trace: { best_hour: best.bucket, mean_return_bps: best.value, count: best.n },
     };
   },
-  sql: (p) => `SELECT AVG(log_ret) * 10000.0 AS value
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-GROUP BY hour
-ORDER BY value DESC
-LIMIT 1;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -440,11 +401,6 @@ registerMetricDef({
       trace: { worst_hour: worst.bucket, mean_return_bps: worst.value, count: worst.n },
     };
   },
-  sql: (p) => `SELECT AVG(log_ret) * 10000.0 AS value
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-GROUP BY hour
-ORDER BY value ASC
-LIMIT 1;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -470,11 +426,6 @@ registerMetricDef({
       trace: { best_dow: best.bucket, day_label: DOW_LABELS[best.bucket], mean_return_bps: best.value, count: best.n },
     };
   },
-  sql: (p) => `SELECT AVG(log_ret) * 10000.0 AS value
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-GROUP BY dow
-ORDER BY value DESC
-LIMIT 1;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -500,11 +451,6 @@ registerMetricDef({
       trace: { worst_dow: worst.bucket, day_label: DOW_LABELS[worst.bucket], mean_return_bps: worst.value, count: worst.n },
     };
   },
-  sql: (p) => `SELECT AVG(log_ret) * 10000.0 AS value
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-GROUP BY dow
-ORDER BY value ASC
-LIMIT 1;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -528,8 +474,6 @@ registerMetricDef({
       trace: { win_count: wins, loss_count: rets.length - wins, total_valid: rets.length, win_rate: metricRes.value },
     };
   },
-  sql: (p) => `SELECT AVG(CASE WHEN log_ret > 0 THEN 100.0 ELSE 0.0 END) AS value
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')};`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatPct,
 });
@@ -554,8 +498,6 @@ registerMetricDef({
       trace: { sum_log_ret: sum, valid_bars: rets.length, mean_bps: meanBps },
     };
   },
-  sql: (p) => `SELECT AVG(log_ret) * 10000.0 AS value
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')};`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -587,12 +529,6 @@ registerMetricDef({
       trace: { year_counts: yearCounts },
     };
   },
-  sql: (p) => `SELECT CAST(year(epoch_ms(open_time_ms)) AS INTEGER) AS key,
-       COUNT(*) AS value,
-       COUNT(*) AS n
-FROM klines ${buildSqlWhere(p)}
-GROUP BY 1
-ORDER BY 1;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatCount,
 });
@@ -608,8 +544,6 @@ const SEASONALITY_METRICS: Array<{
   formulaTpl: (b: string) => string;
   conventions: string[];
   format: (v: any) => string;
-  sqlSeasonality: (bucket: string, params?: Record<string, any>) => string;
-  sqlHeatmap: (params?: Record<string, any>) => string;
 }> = [
   {
     metric: 'mean_return',
@@ -618,10 +552,6 @@ const SEASONALITY_METRICS: Array<{
     formulaTpl: (b) => `Mean Return_${b} = (1 / N_${b}) × Σ_{t ∈ ${b}} log_ret_t × 10,000`,
     conventions: ['UTC discrete buckets', 'null log_ret excluded', 'basis points'],
     format: formatSignedBps,
-    sqlSeasonality: (b, p) =>
-      `SELECT ${b} AS key, AVG(log_ret) * 10000.0 AS value, COUNT(log_ret) AS n FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')} GROUP BY ${b} ORDER BY ${b};`,
-    sqlHeatmap: (p) =>
-      `SELECT CONCAT(CAST(dow AS VARCHAR), ':', CAST(hour AS VARCHAR)) AS key, dow, hour, AVG(log_ret) * 10000.0 AS value, COUNT(log_ret) AS n FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')} GROUP BY dow, hour ORDER BY dow, hour;`,
   },
   {
     metric: 'volatility',
@@ -630,10 +560,6 @@ const SEASONALITY_METRICS: Array<{
     formulaTpl: (b) => `σ_${b} = √[ 1 / (N_${b} − 1) × Σ_{t ∈ ${b}} (r_t − r̄_${b})² ] × 10,000`,
     conventions: ['Sample standard deviation ÷(N−1)', 'null log_ret excluded', 'returns 0 for N < 2'],
     format: formatBps,
-    sqlSeasonality: (b, p) =>
-      `SELECT ${b} AS key, COALESCE(STDDEV_SAMP(log_ret), 0.0) * 10000.0 AS value, COUNT(log_ret) AS n FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')} GROUP BY ${b} ORDER BY ${b};`,
-    sqlHeatmap: (p) =>
-      `SELECT CONCAT(CAST(dow AS VARCHAR), ':', CAST(hour AS VARCHAR)) AS key, dow, hour, COALESCE(STDDEV_SAMP(log_ret), 0.0) * 10000.0 AS value, COUNT(log_ret) AS n FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')} GROUP BY dow, hour ORDER BY dow, hour;`,
   },
   {
     metric: 'win_rate',
@@ -642,10 +568,6 @@ const SEASONALITY_METRICS: Array<{
     formulaTpl: (b) => `Win Rate_${b} = ( N(log_ret > 0)_{${b}} / N_valid_{${b}} ) × 100%`,
     conventions: ['null log_ret excluded', 'strictly positive return fraction'],
     format: formatPct,
-    sqlSeasonality: (b, p) =>
-      `SELECT ${b} AS key, AVG(CASE WHEN log_ret > 0 THEN 100.0 ELSE 0.0 END) AS value, COUNT(log_ret) AS n FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')} GROUP BY ${b} ORDER BY ${b};`,
-    sqlHeatmap: (p) =>
-      `SELECT CONCAT(CAST(dow AS VARCHAR), ':', CAST(hour AS VARCHAR)) AS key, dow, hour, AVG(CASE WHEN log_ret > 0 THEN 100.0 ELSE 0.0 END) AS value, COUNT(log_ret) AS n FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')} GROUP BY dow, hour ORDER BY dow, hour;`,
   },
   {
     metric: 'total_volume',
@@ -654,10 +576,6 @@ const SEASONALITY_METRICS: Array<{
     formulaTpl: (b) => `Total Volume_${b} = Σ_{t ∈ ${b}} volume_t`,
     conventions: ['Aggregated base asset volume in BTC', 'all bars in bucket summed'],
     format: formatBtc,
-    sqlSeasonality: (b, p) =>
-      `SELECT ${b} AS key, SUM(volume) AS value, COUNT(*) AS n FROM klines ${buildSqlWhere(p)} GROUP BY ${b} ORDER BY ${b};`,
-    sqlHeatmap: (p) =>
-      `SELECT CONCAT(CAST(dow AS VARCHAR), ':', CAST(hour AS VARCHAR)) AS key, dow, hour, SUM(volume) AS value, COUNT(*) AS n FROM klines ${buildSqlWhere(p)} GROUP BY dow, hour ORDER BY dow, hour;`,
   },
   {
     metric: 'taker_buy_ratio',
@@ -666,10 +584,6 @@ const SEASONALITY_METRICS: Array<{
     formulaTpl: (b) => `TBR_${b} = Σ_{t ∈ ${b}} taker_buy_volume_t / Σ_{t ∈ ${b}} volume_t`,
     conventions: ['Ratio of sums (not mean of ratios)', '>0.50 denotes net aggressive buyer flow'],
     format: formatRatio,
-    sqlSeasonality: (b, p) =>
-      `SELECT ${b} AS key, COALESCE(SUM(taker_buy_volume) / NULLIF(SUM(volume), 0.0), 0.0) AS value, COUNT(*) AS n FROM klines ${buildSqlWhere(p)} GROUP BY ${b} ORDER BY ${b};`,
-    sqlHeatmap: (p) =>
-      `SELECT CONCAT(CAST(dow AS VARCHAR), ':', CAST(hour AS VARCHAR)) AS key, dow, hour, COALESCE(SUM(taker_buy_volume) / NULLIF(SUM(volume), 0.0), 0.0) AS value, COUNT(*) AS n FROM klines ${buildSqlWhere(p)} GROUP BY dow, hour ORDER BY dow, hour;`,
   },
   {
     metric: 'mean_hl_range',
@@ -678,10 +592,6 @@ const SEASONALITY_METRICS: Array<{
     formulaTpl: (b) => `Mean Range_${b} = (1 / N_${b}) × Σ_{t ∈ ${b}} hl_range_t × 10,000`,
     conventions: ['hl_range = (high − low) / open', 'basis points'],
     format: formatBps,
-    sqlSeasonality: (b, p) =>
-      `SELECT ${b} AS key, AVG(hl_range) * 10000.0 AS value, COUNT(*) AS n FROM klines ${buildSqlWhere(p)} GROUP BY ${b} ORDER BY ${b};`,
-    sqlHeatmap: (p) =>
-      `SELECT CONCAT(CAST(dow AS VARCHAR), ':', CAST(hour AS VARCHAR)) AS key, dow, hour, AVG(hl_range) * 10000.0 AS value, COUNT(*) AS n FROM klines ${buildSqlWhere(p)} GROUP BY dow, hour ORDER BY dow, hour;`,
   },
 ];
 
@@ -717,10 +627,6 @@ for (const sm of SEASONALITY_METRICS) {
         keys,
         trace: { bucket, metric: sm.metric, bucket_count: results.length },
       };
-    },
-    sql: (params) => {
-      const bucket = (params?.bucket === 'dow' ? 'dow' : 'hour') as 'hour' | 'dow';
-      return sm.sqlSeasonality(bucket, params);
     },
     tolerance: DEFAULT_TOLERANCE,
     format: sm.format,
@@ -763,7 +669,6 @@ for (const sm of SEASONALITY_METRICS) {
         trace: { metric: sm.metric, cell_count: cells.length },
       };
     },
-    sql: (params) => sm.sqlHeatmap(params),
     tolerance: DEFAULT_TOLERANCE,
     format: sm.format,
   });
@@ -807,19 +712,6 @@ registerMetricDef({
       trace: { window: windowSize, points_count: points.length },
     };
   },
-  sql: (p) => {
-    const w = p && typeof p.window === 'number' && p.window > 0 ? Math.floor(p.window) : 168;
-    return `WITH rolled AS (
-  SELECT open_time_ms,
-         ROW_NUMBER() OVER (ORDER BY open_time_ms) AS rn,
-         COALESCE(STDDEV_SAMP(log_ret) OVER (ORDER BY open_time_ms ROWS BETWEEN ${w - 1} PRECEDING AND CURRENT ROW), 0.0) * 10000.0 AS value
-  FROM klines ${buildSqlWhere(p)}
-)
-SELECT open_time_ms AS timeMs, value
-FROM rolled
-WHERE rn >= ${w}
-ORDER BY open_time_ms;`;
-  },
   tolerance: DEFAULT_TOLERANCE,
   format: formatBps,
 });
@@ -842,7 +734,6 @@ registerMetricDef({
       trace: { mean_bps: val },
     };
   },
-  sql: (p) => `SELECT AVG(log_ret) * 10000.0 AS value FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')};`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -865,7 +756,6 @@ registerMetricDef({
       trace: { std_bps: val },
     };
   },
-  sql: (p) => `SELECT COALESCE(STDDEV_SAMP(log_ret), 0.0) * 10000.0 AS value FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')};`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatBps,
 });
@@ -888,18 +778,6 @@ registerMetricDef({
       trace: { skewness: val },
     };
   },
-  sql: (p) => `WITH base AS (
-  SELECT log_ret * 10000.0 AS x FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-),
-mu_cte AS (
-  SELECT AVG(x) AS mu FROM base
-),
-moments AS (
-  SELECT AVG(POWER(x - mu, 2)) AS m2,
-         AVG(POWER(x - mu, 3)) AS m3
-  FROM base CROSS JOIN mu_cte
-)
-SELECT CASE WHEN m2 > 0 THEN m3 / POWER(m2, 1.5) ELSE 0.0 END AS value FROM moments;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatRatio,
 });
@@ -925,18 +803,6 @@ registerMetricDef({
       trace: { kurtosis: val },
     };
   },
-  sql: (p) => `WITH base AS (
-  SELECT log_ret * 10000.0 AS x FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-),
-mu_cte AS (
-  SELECT AVG(x) AS mu FROM base
-),
-moments AS (
-  SELECT AVG(POWER(x - mu, 2)) AS m2,
-         AVG(POWER(x - mu, 4)) AS m4
-  FROM base CROSS JOIN mu_cte
-)
-SELECT CASE WHEN m2 > 0 THEN (m4 / (m2 * m2)) - 3.0 ELSE 0.0 END AS value FROM moments;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatRatio,
 });
@@ -968,30 +834,6 @@ registerMetricDef({
       trace: { quantiles: q },
     };
   },
-  sql: (p) => `WITH rets AS (
-  SELECT log_ret * 10000.0 AS ret,
-         ROW_NUMBER() OVER (ORDER BY log_ret) AS rn,
-         COUNT(*) OVER () AS cnt
-  FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')}
-),
-q_ranks AS (
-  SELECT ret, rn, cnt,
-         LEAST(CAST(floor(0.01 * cnt) AS BIGINT) + 1, cnt) AS r_p1,
-         LEAST(CAST(floor(0.05 * cnt) AS BIGINT) + 1, cnt) AS r_p5,
-         LEAST(CAST(floor(0.25 * cnt) AS BIGINT) + 1, cnt) AS r_p25,
-         LEAST(CAST(floor(0.50 * cnt) AS BIGINT) + 1, cnt) AS r_p50,
-         LEAST(CAST(floor(0.75 * cnt) AS BIGINT) + 1, cnt) AS r_p75,
-         LEAST(CAST(floor(0.95 * cnt) AS BIGINT) + 1, cnt) AS r_p95,
-         LEAST(CAST(floor(0.99 * cnt) AS BIGINT) + 1, cnt) AS r_p99
-  FROM rets
-)
-SELECT 'p1' AS key, MAX(CASE WHEN rn = r_p1 THEN ret END) AS value FROM q_ranks
-UNION ALL SELECT 'p5', MAX(CASE WHEN rn = r_p5 THEN ret END) FROM q_ranks
-UNION ALL SELECT 'p25', MAX(CASE WHEN rn = r_p25 THEN ret END) FROM q_ranks
-UNION ALL SELECT 'p50', MAX(CASE WHEN rn = r_p50 THEN ret END) FROM q_ranks
-UNION ALL SELECT 'p75', MAX(CASE WHEN rn = r_p75 THEN ret END) FROM q_ranks
-UNION ALL SELECT 'p95', MAX(CASE WHEN rn = r_p95 THEN ret END) FROM q_ranks
-UNION ALL SELECT 'p99', MAX(CASE WHEN rn = r_p99 THEN ret END) FROM q_ranks;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatSignedBps,
 });
@@ -1003,7 +845,7 @@ registerMetricDef({
   unit: 'count',
   formula: 'Partition of return range into 50 equal-width bins',
   conventions: [
-    'Summary-only parity: n, min, max (bins are visual formatting)',
+    'Summary-only verification: n, min, max (bins are visual formatting)',
     'Equal-width binning spanning min to max observed return',
   ],
   paramsSchema: {
@@ -1030,10 +872,6 @@ registerMetricDef({
       },
     };
   },
-  sql: (p) => `SELECT COUNT(log_ret) AS n,
-       MIN(log_ret) * 10000.0 AS min,
-       MAX(log_ret) * 10000.0 AS max
-FROM klines ${buildSqlWhere(p, 'log_ret IS NOT NULL')};`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatCount,
 });
@@ -1075,10 +913,6 @@ registerMetricDef({
       trace: { net_total_btc: finalDelta, total_points: points.length },
     };
   },
-  sql: (p) => `SELECT open_time_ms AS timeMs,
-       SUM(2.0 * taker_buy_volume - volume) OVER (ORDER BY open_time_ms ROWS UNBOUNDED PRECEDING) AS value
-FROM klines ${buildSqlWhere(p)}
-ORDER BY open_time_ms;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatBtc,
 });
@@ -1108,12 +942,6 @@ registerMetricDef({
       trace: { hourly_buckets: 24 },
     };
   },
-  sql: (p) => `SELECT hour AS key,
-       COALESCE(SUM(taker_buy_volume) / NULLIF(SUM(volume), 0.0), 0.0) * 100.0 AS value,
-       COUNT(*) AS n
-FROM klines ${buildSqlWhere(p)}
-GROUP BY hour
-ORDER BY hour;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatPct,
 });
@@ -1152,13 +980,6 @@ registerMetricDef({
       trace: { monthly_count: monthly.length },
     };
   },
-  sql: (p) => `SELECT CONCAT(CAST(year(epoch_ms(open_time_ms)) AS VARCHAR), '-', LPAD(CAST(month(epoch_ms(open_time_ms)) AS VARCHAR), 2, '0')) AS key,
-       CAST(year(epoch_ms(open_time_ms)) AS INTEGER) AS year,
-       CAST(month(epoch_ms(open_time_ms)) - 1 AS INTEGER) AS month,
-       ((arg_max(close, open_time_ms) - arg_min(open, open_time_ms)) / arg_min(open, open_time_ms)) * 100.0 AS value
-FROM klines ${buildSqlWhere(p)}
-GROUP BY 1, 2, 3
-ORDER BY year, month;`,
   tolerance: DEFAULT_TOLERANCE,
   format: (v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`,
 });
@@ -1197,19 +1018,6 @@ registerMetricDef({
       trace: { years_count: years.length },
     };
   },
-  sql: (p) => `WITH monthly AS (
-  SELECT CAST(year(epoch_ms(open_time_ms)) AS INTEGER) AS year,
-         CAST(month(epoch_ms(open_time_ms)) AS INTEGER) AS month,
-         ((arg_max(close, open_time_ms) - arg_min(open, open_time_ms)) / arg_min(open, open_time_ms)) * 100.0 AS return_pct
-  FROM klines ${buildSqlWhere(p)}
-  GROUP BY 1, 2
-)
-SELECT year AS key,
-       (PRODUCT(1.0 + (return_pct / 100.0)) - 1.0) * 100.0 AS value,
-       COUNT(*) AS n
-FROM monthly
-GROUP BY year
-ORDER BY year;`,
   tolerance: DEFAULT_TOLERANCE,
   format: (v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`,
 });
@@ -1244,16 +1052,6 @@ registerMetricDef({
       trace: { max_drawdown_pct: maxDrawdownPct, points_count: series.length },
     };
   },
-  sql: (p) => `WITH hwm AS (
-  SELECT open_time_ms,
-         close,
-         MAX(close) OVER (ORDER BY open_time_ms ROWS UNBOUNDED PRECEDING) AS peak
-  FROM klines ${buildSqlWhere(p)}
-)
-SELECT open_time_ms AS timeMs,
-       ((close - peak) / peak) * 100.0 AS value
-FROM hwm
-ORDER BY open_time_ms;`,
   tolerance: DEFAULT_TOLERANCE,
   format: formatPct,
 });

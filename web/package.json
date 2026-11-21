@@ -4,16 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-duckdb-assets.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/copy-duckdb-assets.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest",
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@duckdb/duckdb-wasm": "1.28.0",
     "echarts": "5.5.1",
     "hyparquet": "1.33.1",
     "lightweight-charts": "5.0.5"

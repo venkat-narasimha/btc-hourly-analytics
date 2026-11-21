@@ -50,11 +50,6 @@ const NAV_ITEMS: Array<{ tab: TabId; label: string; icon: string }> = [
     label: 'Data Quality',
     icon: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 L14.5 4.5 L14.5 8.5 C14.5 11.5 11.5 14 8 15 C4.5 14 1.5 11.5 1.5 8.5 L1.5 4.5 Z"/><polyline points="5.5,8 7.5,10 11,6"/></svg>`,
   },
-  {
-    tab: 'playground',
-    label: 'Playground',
-    icon: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,6 7,8.5 4,11"/><line x1="8.5" y1="11" x2="12" y2="11"/><rect x="1.5" y="2" width="13" height="12" rx="1.5"/></svg>`,
-  },
 ];
 
 const CHEVRON_SVG = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,4 6,8 10,12"/></svg>`;

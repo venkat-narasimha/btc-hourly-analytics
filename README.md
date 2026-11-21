@@ -149,25 +149,20 @@ make dev
 All automated tests use self-contained synthetic fixtures and require **no network connection**:
 
 ```bash
-# Python pipeline and verification kit tests (53 tests)
+# Python pipeline tests (52 tests)
 .venv/Scripts/pytest pipeline/tests/ -v
 
-# Dual-engine SQL parity check (43 test cases)
-python verification/parity_check.py
-
-# Web unit tests and manifest generator (79 tests)
+# Web unit tests (57 tests)
 cd web && npm test -- --run
 ```
 
 ---
 
-## 7. Verification Playground ("Every Number Shows Its Work")
+## 7. Mathematical Transparency ("Every Number Shows Its Work")
 
-The application provides three levels of mathematical transparency and verification independence:
+The application provides mathematical transparency and verification through:
 
 1. **Inspect Drawer (Explain)**: Click the inspect icon on any KPI card, chart header, heatmap cell, seasonality bar, or calendar cell to view the exact canonical formula, statistical conventions, filter scope, computation trace intermediates, and download the exact underlying 15-column subset CSV.
-2. **DuckDB-WASM Parity (Cross-Check)**: Run equivalent parameterized SQL directly in the browser over the served Parquet dataset in WebAssembly, cross-checking TypeScript analytics against standard relational database algebra with real-time parity badges.
-3. **Independent Verification Kit (External Audit)**: Download `verification_manifest.json` from the Data Quality tab and run the standalone, standard-library-only Python kit (`verification/verify_release.py`) to verify the entire release from Binance Vision source archives independently of this web client or backend pipeline.
-
-For detailed documentation, trust boundaries, and conventions, see **[verification/README.md](verification/README.md)**.
+2. **Enumerable-Instance Validation Tables**: Direct interactive validation tables exposing every metric, bucket, and series with exact instance drill-downs and live plain-language recomputation proofs.
+3. **Data Provenance & Lineage**: Full release metadata, pipeline Git commit SHA, SHA-256 artifact checksums, and source archive provenance.
 

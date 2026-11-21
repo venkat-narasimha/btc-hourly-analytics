@@ -9,7 +9,6 @@ import { computeSeasonality, DOW_LABELS } from '../stats/aggregations';
 import { computeDrawdownSeries } from '../stats/analytics';
 import { formatSignedBps } from '../stats/display';
 import { renderInfoTooltip, renderInspectTrigger } from './tooltip';
-import { renderParityBadge, verifyVisibleMetrics } from '../verify/badges';
 
 export function createOverviewPage(
   container: HTMLElement,
@@ -85,20 +84,10 @@ export function createOverviewPage(
   container.innerHTML = `
     <div class="page-wrapper tab-enter">
       <!-- Page Header -->
-      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+      <div class="page-header">
         <div class="page-header-left">
           <h2 class="page-title">Analytics Overview</h2>
           <p class="page-subtitle">Descriptive historical analytics over Binance USDⓈ-M Futures BTCUSDT 1h klines</p>
-        </div>
-        <div>
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-verify-overview" style="display: flex; align-items: center; gap: 6px;">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <ellipse cx="8" cy="4" rx="6" ry="2.5" />
-              <path d="M2 4v8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V4" />
-              <path d="M2 8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5" />
-            </svg>
-            <span id="btn-verify-overview-text">Verify Visible (DuckDB)</span>
-          </button>
         </div>
       </div>
 
@@ -115,7 +104,6 @@ export function createOverviewPage(
               position: 'bottom',
             })}
             ${renderInspectTrigger('kpi.total_bars', { title: 'Inspect Dataset Bars' })}
-            ${renderParityBadge('kpi.total_bars', undefined, { showLabel: false })}
           </span>
           <div class="kpi-value">${totalBars.toLocaleString('en-US')}</div>
           <span class="kpi-sub">Hourly observations loaded</span>
@@ -131,7 +119,6 @@ export function createOverviewPage(
               position: 'bottom',
             })}
             ${renderInspectTrigger('kpi.span_years', { title: 'Inspect Date Range & Span' })}
-            ${renderParityBadge('kpi.span_years', undefined, { showLabel: false })}
           </span>
           <div class="kpi-value" style="font-size: var(--text-lg);">${dateRangeStr}</div>
           <span class="kpi-sub">${((data[data.length - 1].open_time_ms - data[0].open_time_ms) / (86400000 * 365.25)).toFixed(1)} years span</span>
@@ -163,7 +150,6 @@ export function createOverviewPage(
               position: 'bottom',
             })}
             ${renderInspectTrigger('kpi.latest_close', { title: 'Inspect Latest Close' })}
-            ${renderParityBadge('kpi.latest_close', undefined, { showLabel: false })}
           </span>
           <div class="kpi-value ${priceClass}">$${latestPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
           <span class="kpi-sub ${priceClass}">${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}% ${periodLabel}</span>
@@ -180,7 +166,6 @@ export function createOverviewPage(
               position: 'bottom',
             })}
             ${renderInspectTrigger('kpi.max_drawdown', { title: 'Inspect Maximum Drawdown' })}
-            ${renderParityBadge('kpi.max_drawdown', undefined, { showLabel: false })}
           </span>
           <div class="kpi-value negative">${maxDrawdownPct.toFixed(2)}%</div>
           <span class="kpi-sub">Peak-to-trough all-time</span>
@@ -352,53 +337,4 @@ export function createOverviewPage(
     </div>
   `;
 
-  // Attach Verify Visible Metrics handler
-  const verifyBtn = container.querySelector('#btn-verify-overview') as HTMLButtonElement;
-  const verifyBtnText = container.querySelector('#btn-verify-overview-text') as HTMLElement;
-
-  verifyBtn?.addEventListener('click', async () => {
-    if (verifyBtn.disabled) return;
-    verifyBtn.disabled = true;
-
-    const overviewDefs = [
-      { defId: 'kpi.total_bars' },
-      { defId: 'kpi.span_years' },
-      { defId: 'kpi.latest_close' },
-      { defId: 'kpi.period_return_pct' },
-      { defId: 'kpi.max_drawdown' },
-      { defId: 'kpi.best_hour' },
-      { defId: 'kpi.worst_hour' },
-      { defId: 'kpi.best_dow' },
-      { defId: 'kpi.worst_dow' },
-      { defId: 'kpi.hourly_win_rate' },
-      { defId: 'kpi.mean_hourly_return' },
-      { defId: 'kpi.per_year_counts' },
-    ];
-
-    try {
-      const results = await verifyVisibleMetrics(
-        overviewDefs,
-        data,
-        { meta, qualityData },
-        (done, total) => {
-          if (verifyBtnText) {
-            verifyBtnText.textContent = `Verifying (${done}/${total})...`;
-          }
-        }
-      );
-
-      const matches = results.filter((r) => r.status === 'match').length;
-      if (verifyBtnText) {
-        verifyBtnText.textContent = `✓ ${matches}/${results.length} Verified`;
-      }
-      verifyBtn.classList.remove('btn-secondary');
-      verifyBtn.classList.add('btn-primary');
-    } catch {
-      if (verifyBtnText) {
-        verifyBtnText.textContent = 'Verification Failed';
-      }
-    } finally {
-      verifyBtn.disabled = false;
-    }
-  });
 }

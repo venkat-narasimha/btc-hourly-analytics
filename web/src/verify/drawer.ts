@@ -14,8 +14,6 @@
 import type { KlineRow, Meta, QualityReport } from '../types';
 import { getMetricDef, type Result } from './registry';
 import { createProofLink } from './links';
-import { runParityCheck } from './parity';
-import { setBadgeResult } from './badges';
 
 export interface OpenDrawerOptions {
   defId: string;
@@ -522,19 +520,8 @@ export function renderInspectDrawerHtml(options: OpenDrawerOptions): string {
             </svg>
             Copy Proof Link
           </button>
-
-          <button type="button" class="btn btn-secondary" id="btn-crosscheck-sql"
-                  ${def.kind === 'provenance' || !def.sql ? 'disabled title="Provenance metric verified via release kit, not SQL"' : 'title="Run equivalent SQL in DuckDB-WASM"'}>
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <ellipse cx="8" cy="4" rx="6" ry="2.5" />
-              <path d="M2 4v8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V4" />
-              <path d="M2 8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5" />
-            </svg>
-            Cross-check SQL (DuckDB)
-          </button>
         </div>
         <div id="recompute-status-banner" style="margin-top: 8px;"></div>
-        <div id="sql-crosscheck-results" style="margin-top: 12px;"></div>
       </section>
     </div>
   `;
@@ -666,122 +653,6 @@ export function openInspectDrawer(options: OpenDrawerOptions): void {
     } catch {
       window.location.hash = proofHash;
       copyBtn.textContent = 'Hash Updated in Address Bar';
-    }
-  });
-
-  // Cross-check SQL button
-  const crosscheckBtn = drawer.querySelector('#btn-crosscheck-sql') as HTMLButtonElement;
-  const sqlResultsContainer = drawer.querySelector('#sql-crosscheck-results') as HTMLElement;
-
-  crosscheckBtn?.addEventListener('click', async () => {
-    if (crosscheckBtn.disabled || !sqlResultsContainer) return;
-
-    crosscheckBtn.disabled = true;
-    crosscheckBtn.innerHTML = `
-      <svg class="animate-spin" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="8" cy="8" r="6" stroke-dasharray="10 20" />
-      </svg>
-      Running DuckDB-WASM...
-    `;
-
-    sqlResultsContainer.innerHTML = `
-      <div class="p-3 bg-[var(--surface-muted)] rounded border border-[var(--border-subtle)] text-xs text-[var(--text-muted)] flex items-center">
-        <span class="mr-2">⏳</span> Initializing DuckDB-WASM and querying Parquet artifact...
-      </div>
-    `;
-
-    const params: Record<string, any> = {
-      bucket: options.bucket,
-      metric: options.metric,
-      window: options.window,
-      startMs: options.startMs,
-      endMs: options.endMs,
-    };
-
-    try {
-      const parity = await runParityCheck(def.id, options.data, params, {
-        meta: options.meta,
-        qualityData: options.qualityData,
-      });
-
-      setBadgeResult(parity, params);
-
-      let statusColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
-      let statusHeading = '✓ SQL Parity Verified';
-      if (parity.status === 'mismatch') {
-        statusColor = 'text-amber-400 bg-amber-500/10 border-amber-500/30';
-        statusHeading = '✗ Parity Mismatch Detected';
-      } else if (parity.status === 'error') {
-        statusColor = 'text-rose-400 bg-rose-500/10 border-rose-500/30';
-        statusHeading = '⚠️ Cross-check Error';
-      }
-
-      sqlResultsContainer.innerHTML = `
-        <div class="rounded border p-3 ${statusColor} text-xs">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <strong style="font-size: 13px;">${statusHeading}</strong>
-            <span class="font-mono text-[var(--text-muted)]">${parity.durationMs.toFixed(1)} ms</span>
-          </div>
-
-          ${parity.error ? `
-            <div style="color: var(--color-negative); margin-bottom: 6px;">${escapeHtml(parity.error)}</div>
-          ` : `
-            <div style="margin-bottom: 6px;">
-              ${parity.matchedCount} of ${parity.totalCount} values matched within tolerance (${def.tolerance.abs} abs / ${def.tolerance.rel} rel).
-              ${parity.maxDelta > 0 ? `· Max Δ: <code class="font-mono">${parity.maxDelta.toExponential(4)}</code>` : ''}
-            </div>
-          `}
-
-          <div style="margin-top: 8px;">
-            <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-normal);">Generated Cross-check SQL:</div>
-            <pre class="inspect-trace-json font-mono" style="max-height: 140px; overflow-y: auto;">${escapeHtml(parity.sql)}</pre>
-          </div>
-
-          ${parity.status === 'mismatch' ? `
-            <div style="margin-top: 8px;">
-              <div style="font-weight: 600; margin-bottom: 4px; color: var(--color-negative);">Mismatch Details (First 5):</div>
-              <table class="data-table" style="width: 100%; font-size: 11px;">
-                <thead>
-                  <tr><th>Key</th><th>App Value</th><th>DuckDB SQL</th><th>Δ</th></tr>
-                </thead>
-                <tbody>
-                  ${parity.details
-                    .filter((d) => !d.match)
-                    .slice(0, 5)
-                    .map(
-                      (d) => `
-                        <tr>
-                          <td class="font-mono">${escapeHtml(String(d.key))}</td>
-                          <td class="font-mono">${d.appValue}</td>
-                          <td class="font-mono">${d.sqlValue}</td>
-                          <td class="font-mono text-negative">${d.diff.toExponential(4)}</td>
-                        </tr>
-                      `
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    } catch (err: any) {
-      sqlResultsContainer.innerHTML = `
-        <div class="rounded border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
-          <strong>Cross-check Execution Error:</strong>
-          <pre class="font-mono mt-1">${escapeHtml(err?.message || String(err))}</pre>
-        </div>
-      `;
-    } finally {
-      crosscheckBtn.disabled = false;
-      crosscheckBtn.innerHTML = `
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <ellipse cx="8" cy="4" rx="6" ry="2.5" />
-          <path d="M2 4v8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V4" />
-          <path d="M2 8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5" />
-        </svg>
-        Re-run SQL Cross-check
-      `;
     }
   });
 }

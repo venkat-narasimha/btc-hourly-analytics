@@ -53,3 +53,9 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Why**: Rigorous end-to-end verification ensuring zero uninspected numbers and preventing false positives or stale cache usage.
 - **Alternative**: Compare every cell of matrices; compare series summaries; re-validate remote checksums on every run.
 - **Impact**: 46/46 definitions verified independently with effective tolerance bounds `max(abs, rel * |value|)`.
+
+## DEV-009: Replacement of SQL Playground and Verification Kit with Enumerable-Instance Validation Tables
+- **What**: Superceding client-facing surfaces of PLAN-verify.md Phases B/C per PLAN-tables.md. Removal of DuckDB-WASM, SQL Playground tab, SQL parity gate/badges, verification manifest exporter, and external Python verification kit (`verification/`).
+- **Why**: Audience is a non-technical client. Independent SQL engine parity and terminal verification scripts created friction and trust barriers. True non-technical client transparency requires enumerable-instance drill-downs, live plain-language recomputations, and direct CSV/Excel exports without SQL engine overhead or binary wasm asset footprint.
+- **Alternative**: Dedicated Validation section rendering existing registry definitions via modular Tabulator tables, with instant drill-down to underlying raw OHLCV bars and transparent live formula verification within defined numerical tolerance.
+- **Impact**: Reduced client bundle size (~32 kB uncompressed / ~8.8 kB gzip shrink in main chunk, plus elimination of ~208 kB auxiliary wasm chunks and 17.5 MB WASM assets); zero SQL dependency in CI or client runtime; existing `registry.ts` and pipeline provenance fields (`source_files`, `artifact_sha256`) fully preserved.

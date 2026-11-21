@@ -14,8 +14,6 @@ web/dist/
 
 # Artifacts (produced at runtime)
 artifacts/
-web/public/duckdb/
-verification/fixtures/
 
 # IDE
 .vscode/
