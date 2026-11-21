@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatSignedBps, computeTbrAxisBounds } from './display';
+import { formatSignedBps, computeTbrAxisBounds, formatVolumeAbbreviated } from './display';
 
 describe('formatSignedBps', () => {
   it('formats positive numbers with a + sign', () => {
@@ -49,3 +49,34 @@ describe('computeTbrAxisBounds', () => {
     expect(bounds.max).toBeGreaterThanOrEqual(50);
   });
 });
+
+describe('formatVolumeAbbreviated', () => {
+  it('formats billions correctly', () => {
+    expect(formatVolumeAbbreviated(1240000000)).toBe('1.24B');
+    expect(formatVolumeAbbreviated(3500000000)).toBe('3.50B');
+  });
+
+  it('formats millions correctly', () => {
+    expect(formatVolumeAbbreviated(32060000)).toBe('32.06M');
+    expect(formatVolumeAbbreviated(1500000)).toBe('1.50M');
+  });
+
+  it('formats thousands correctly', () => {
+    expect(formatVolumeAbbreviated(450200)).toBe('450.2K');
+    expect(formatVolumeAbbreviated(1200)).toBe('1.2K');
+  });
+
+  it('formats sub-thousand values correctly', () => {
+    expect(formatVolumeAbbreviated(450.2)).toBe('450.2');
+  });
+
+  it('handles negative numbers cleanly', () => {
+    expect(formatVolumeAbbreviated(-32060000)).toBe('-32.06M');
+  });
+
+  it('handles null and undefined gracefully', () => {
+    expect(formatVolumeAbbreviated(null)).toBe('—');
+    expect(formatVolumeAbbreviated(undefined)).toBe('—');
+  });
+});
+

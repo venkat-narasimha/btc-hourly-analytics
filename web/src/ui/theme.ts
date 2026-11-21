@@ -13,7 +13,7 @@ export function getInitialTheme(): Theme {
   } catch {
     // ignore
   }
-  return 'dark'; // Default theme is dark
+  return 'light'; // Default theme is light
 }
 
 export function saveTheme(theme: Theme): void {

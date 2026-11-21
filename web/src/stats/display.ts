@@ -35,3 +35,23 @@ export function computeTbrAxisBounds(values: number[]): { min: number; max: numb
     max: Math.ceil(max + pad),
   };
 }
+
+/**
+ * Abbreviate large numeric volumes (e.g. 32060000 -> "32.06M", 1240000000 -> "1.24B", 450200 -> "450.2K").
+ */
+export function formatVolumeAbbreviated(val: number | null | undefined): string {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  const abs = Math.abs(val);
+  const sign = val < 0 ? '-' : '';
+  if (abs >= 1e9) {
+    return `${sign}${(abs / 1e9).toFixed(2)}B`;
+  }
+  if (abs >= 1e6) {
+    return `${sign}${(abs / 1e6).toFixed(2)}M`;
+  }
+  if (abs >= 1e3) {
+    return `${sign}${(abs / 1e3).toFixed(1)}K`;
+  }
+  return `${sign}${abs.toFixed(1)}`;
+}
+

@@ -7,7 +7,8 @@ export interface TopbarStats {
   coveragePct: number;
   dateRange: string;      // e.g. "Jan 2020 – Nov 2026"
   latestPrice: number | null;
-  lastUpdated: string;    // e.g. "2026-11-20"
+  dataThrough: string;    // e.g. "Nov 19 23:00 UTC"
+  refreshedAt: string;    // e.g. "Nov 21 08:00 UTC"
   isStale?: boolean;
 }
 
@@ -17,16 +18,6 @@ function formatBars(n: number): string {
 
 function formatPrice(n: number): string {
   return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-function formatUpdated(dateStr: string): string {
-  // dateStr: "YYYY-MM-DD" → "Nov 20"
-  try {
-    const d = new Date(dateStr + 'T00:00:00Z');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  } catch {
-    return dateStr;
-  }
 }
 
 function coverageClass(pct: number): string {
@@ -85,7 +76,10 @@ export function createTopbar(
         parts.push('<div class="topbar-divider"></div>');
       }
 
-      parts.push(pill(formatUpdated(stats.lastUpdated), 'REFRESHED', stats.isStale ? 'warning' : undefined));
+      parts.push(pill(stats.dataThrough, 'DATA THROUGH'));
+      parts.push('<div class="topbar-divider"></div>');
+
+      parts.push(pill(stats.refreshedAt, 'REFRESHED', stats.isStale ? 'warning' : 'positive'));
 
       statsEl.innerHTML = parts.join('');
     },

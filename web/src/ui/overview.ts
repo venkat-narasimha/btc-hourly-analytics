@@ -264,15 +264,23 @@ export function createOverviewPage(
               ${years.map(y => {
                 const count = yearCounts[y];
                 const isLeap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-                const expected = isLeap ? 8784 : 8760;
-                const isCurrentYear = y === new Date().getUTCFullYear();
-                const pct = Math.min((count / expected) * 100, 100);
+                const fullYearExpected = isLeap ? 8784 : 8760;
+                const isCurrentYear = y === lastDate.getUTCFullYear();
+                const yearStartMs = Date.UTC(y, 0, 1, 0, 0, 0);
+                const ytdExpected = isCurrentYear
+                  ? Math.max(1, Math.floor((lastDate.getTime() - yearStartMs) / 3600000) + 1)
+                  : fullYearExpected;
+                const expectedDisplay = isCurrentYear ? ytdExpected : fullYearExpected;
+                const pct = Math.min((count / expectedDisplay) * 100, 100);
                 const color = isCurrentYear ? 'var(--color-info)' : pct >= 99 ? 'var(--color-positive)' : 'var(--color-warning)';
+                const progressText = isCurrentYear
+                  ? `${count.toLocaleString()} / ${ytdExpected.toLocaleString()} bars (${pct.toFixed(1)}% YTD)`
+                  : `${count.toLocaleString()} / ${fullYearExpected.toLocaleString()} bars (${pct.toFixed(1)}%)`;
                 return `
                   <div>
                     <div style="display: flex; justify-content: space-between; font-size: var(--text-xs); margin-bottom: 4px;">
                       <span style="font-weight: 600; color: var(--text-primary);">${y}${isCurrentYear ? ' (YTD)' : ''}</span>
-                      <span class="font-tabular text-secondary">${count.toLocaleString()} / ${isCurrentYear ? 'YTD' : expected.toLocaleString()} bars (${pct.toFixed(1)}%)</span>
+                      <span class="font-tabular text-secondary">${progressText}</span>
                     </div>
                     <div class="progress-bar-wrap">
                       <div class="progress-bar-bg">

@@ -11,13 +11,16 @@ import {
   DownloadModule,
   FormatModule,
   InteractionModule,
+  ResponsiveLayoutModule,
+  FrozenColumnsModule,
+  TooltipModule,
   type ColumnDefinition,
   type Options,
 } from 'tabulator-tables';
-import 'tabulator-tables/dist/css/tabulator_midnight.min.css';
+import 'tabulator-tables/dist/css/tabulator.min.css';
 import { downloadCsv, downloadExcel, type ExportColumn } from './export';
 
-// Register only required Tabulator modules once
+// Register required Tabulator modules once
 Tabulator.registerModule([
   SortModule,
   FilterModule,
@@ -25,6 +28,9 @@ Tabulator.registerModule([
   DownloadModule,
   FormatModule,
   InteractionModule,
+  ResponsiveLayoutModule,
+  FrozenColumnsModule,
+  TooltipModule,
 ]);
 
 export interface ValidationTableOptions {
@@ -38,6 +44,7 @@ export interface ValidationTableOptions {
   onRowClick?: (rowData: any) => void;
   height?: string | number;
   searchable?: boolean;
+  layout?: Options['layout'];
 }
 
 export interface ValidationTableInstance {
@@ -95,8 +102,12 @@ export function createValidationTable(
   const tabulatorOptions: Options = {
     data: options.data,
     columns: options.columns,
-    layout: 'fitColumns',
+    columnDefaults: {
+      headerTooltip: true,
+    },
+    layout: options.layout ?? 'fitColumns',
     responsiveLayout: 'collapse',
+    responsiveLayoutCollapseStartOpen: false,
     pagination: options.pagination ?? true,
     paginationMode: 'local',
     paginationSize: options.pageSize ?? 20,

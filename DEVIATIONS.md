@@ -65,3 +65,9 @@ This file documents any departures from the PLAN.md specification, with rational
 - **Why**: npm audit warnings identify potential prototype pollution / ReDoS advisories in older SheetJS versions on the *read/parser* path (`XLSX.read` / `XLSX.readFile`). In this application, `xlsx` is used strictly on the *write-only export* path (`XLSX.utils.book_new`, `XLSX.utils.json_to_sheet`, `XLSX.writeFile`) with internally validated and sanitised application data. It is never invoked on user-supplied or untrusted binary spreadsheets, rendering read-side parser vulnerabilities non-applicable. Furthermore, `xlsx` is strictly code-split into an isolated dynamic chunk (`xlsx-*.js`) that is loaded only on an explicit user click of the "Download Excel" button.
 - **Alternative**: Retain exact pinned `0.18.5` for client-side multi-sheet Excel generation without introducing bloated or proprietary server-dependent alternatives.
 - **Impact**: Zero initial bundle overhead (dynamic import), safe client-side XLSX generation, and no exposure to parser CVE vectors.
+
+## DEV-011: Daily ETL Refresh Schedule Shifted to 08:00 UTC
+- **What**: Daily refresh cron in `docker/crontab` moved from `03:30 UTC` to `08:00 UTC`.
+- **Why**: Binance Vision archive uploads for the previous calendar day ($T-1$) routinely publish between 04:00 and 07:00 UTC on day $T$. Running ETL at 03:30 UTC meant daily archives for $T-1$ were not yet published on Binance servers, resulting in a 2-day data lag until the next refresh.
+- **Alternative**: Reschedule cron execution to 08:00 UTC daily (`0 8 * * * python -m pipeline.run --out /data`).
+- **Impact**: Guarantees that the prior-day archive is published and ingested on every morning run, ensuring market dataset coverage is always current through $T-1$ 23:00 UTC without manual intervention.

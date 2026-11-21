@@ -43,7 +43,7 @@ docker compose up --build
 
 Open **[http://localhost:8080](http://localhost:8080)** in your browser.
 
-The `etl` container executes an initial ingestion run immediately on startup, writes validated artifacts to the shared volume, and starts a `supercronic` cron daemon that refreshes data daily at **03:30 UTC**. The `web` container serves the SPA and artifacts through Nginx with gzip compression, caching rules, and security headers.
+The `etl` container executes an initial ingestion run immediately on startup, writes validated artifacts to the shared volume, and starts a `supercronic` cron daemon that refreshes data daily at **08:00 UTC** (ensuring previous-day Binance Vision daily files are published before refresh). The `web` container serves the SPA and artifacts through Nginx with gzip compression, caching rules, and security headers.
 
 ---
 

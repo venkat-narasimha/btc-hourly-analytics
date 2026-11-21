@@ -18,6 +18,7 @@ import {
   computeMonthlyReturns,
   computeDrawdownSeries,
 } from '../stats/analytics';
+import { formatVolumeAbbreviated } from '../stats/display';
 import { createValidationTable, type ValidationTableInstance } from '../validation/table';
 import { selectInstances } from '../validation/instances';
 import { openInspectDrawer } from '../verify/drawer';
@@ -173,23 +174,110 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       {
         title: 'Open Time (UTC)',
         field: 'open_time_ms',
+        frozen: true,
+        responsive: 0,
         formatter: (cell) => `<span class="font-mono text-xs">${formatUtc(cell.getValue())}</span>`,
         headerFilter: 'input',
-        width: 150,
+        minWidth: 150,
       },
-      { title: 'Open', field: 'open', hozAlign: 'right', formatter: (c) => Number(c.getValue()).toFixed(1) },
-      { title: 'High', field: 'high', hozAlign: 'right', formatter: (c) => Number(c.getValue()).toFixed(1) },
-      { title: 'Low', field: 'low', hozAlign: 'right', formatter: (c) => Number(c.getValue()).toFixed(1) },
-      { title: 'Close', field: 'close', hozAlign: 'right', formatter: (c) => Number(c.getValue()).toFixed(1) },
-      { title: 'Volume (BTC)', field: 'volume', hozAlign: 'right', formatter: (c) => Number(c.getValue()).toFixed(2) },
-      { title: 'Quote Vol', field: 'quote_volume', hozAlign: 'right', visible: false },
-      { title: 'Trades', field: 'trades', hozAlign: 'right', formatter: (c) => Number(c.getValue()).toLocaleString() },
-      { title: 'Taker Vol (BTC)', field: 'taker_buy_volume', hozAlign: 'right', visible: false },
-      { title: 'Taker Quote Vol', field: 'taker_buy_quote_volume', hozAlign: 'right', visible: false },
+      {
+        title: 'Open',
+        field: 'open',
+        hozAlign: 'right',
+        responsive: 0,
+        minWidth: 90,
+        formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toFixed(1)}</span>`,
+      },
+      {
+        title: 'High',
+        field: 'high',
+        hozAlign: 'right',
+        responsive: 1,
+        minWidth: 90,
+        formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toFixed(1)}</span>`,
+      },
+      {
+        title: 'Low',
+        field: 'low',
+        hozAlign: 'right',
+        responsive: 1,
+        minWidth: 90,
+        formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toFixed(1)}</span>`,
+      },
+      {
+        title: 'Close',
+        field: 'close',
+        hozAlign: 'right',
+        responsive: 0,
+        minWidth: 90,
+        formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toFixed(1)}</span>`,
+      },
+      {
+        title: 'Volume (BTC)',
+        field: 'volume',
+        hozAlign: 'right',
+        responsive: 1,
+        minWidth: 110,
+        formatter: (c) => {
+          const v = Number(c.getValue());
+          const full = v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+          const abbr = formatVolumeAbbreviated(v);
+          return `<span class="font-tabular" title="${full} BTC">${abbr}</span>`;
+        },
+      },
+      {
+        title: 'Quote Vol',
+        field: 'quote_volume',
+        hozAlign: 'right',
+        responsive: 2,
+        minWidth: 115,
+        formatter: (c) => {
+          const v = Number(c.getValue());
+          const full = '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+          const abbr = '$' + formatVolumeAbbreviated(v);
+          return `<span class="font-tabular" title="${full}">${abbr}</span>`;
+        },
+      },
+      {
+        title: 'Trades',
+        field: 'trades',
+        hozAlign: 'right',
+        responsive: 2,
+        minWidth: 85,
+        formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toLocaleString()}</span>`,
+      },
+      {
+        title: 'Taker Vol (BTC)',
+        field: 'taker_buy_volume',
+        hozAlign: 'right',
+        responsive: 2,
+        minWidth: 115,
+        formatter: (c) => {
+          const v = Number(c.getValue());
+          const full = v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+          const abbr = formatVolumeAbbreviated(v);
+          return `<span class="font-tabular" title="${full} BTC">${abbr}</span>`;
+        },
+      },
+      {
+        title: 'Taker Quote Vol',
+        field: 'taker_buy_quote_volume',
+        hozAlign: 'right',
+        responsive: 3,
+        minWidth: 120,
+        formatter: (c) => {
+          const v = Number(c.getValue());
+          const full = '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+          const abbr = '$' + formatVolumeAbbreviated(v);
+          return `<span class="font-tabular" title="${full}">${abbr}</span>`;
+        },
+      },
       {
         title: 'Log Ret (bps)',
         field: 'log_ret',
         hozAlign: 'right',
+        responsive: 1,
+        minWidth: 100,
         formatter: (c) => {
           const v = c.getValue();
           if (v === null || v === undefined) return '<span class="text-muted">—</span>';
@@ -198,38 +286,45 @@ export function createValidationView(container: HTMLElement, getContext: () => V
           return `<span class="${cls} font-mono">${bps.toFixed(2)}</span>`;
         },
       },
-      { title: 'Hour', field: 'hour', hozAlign: 'center', width: 70 },
+      { title: 'Hour', field: 'hour', hozAlign: 'center', minWidth: 65, responsive: 2 },
       {
         title: 'DOW',
         field: 'dow',
         hozAlign: 'center',
-        width: 75,
+        minWidth: 70,
+        responsive: 2,
         formatter: (c) => DOW_LABELS[c.getValue()] || String(c.getValue()),
       },
       {
         title: 'Taker Ratio',
         field: 'taker_buy_ratio',
         hozAlign: 'right',
-        formatter: (c) => (c.getValue() !== null ? Number(c.getValue()).toFixed(4) : '—'),
+        responsive: 2,
+        minWidth: 95,
+        formatter: (c) => (c.getValue() !== null ? `<span class="font-tabular">${Number(c.getValue()).toFixed(4)}</span>` : '—'),
       },
       {
         title: 'H-L Range (bps)',
         field: 'hl_range',
         hozAlign: 'right',
+        responsive: 2,
+        minWidth: 105,
         formatter: (c) => `<span class="font-mono">${(Number(c.getValue()) * 10000).toFixed(1)}</span>`,
       },
       {
-        title: 'Inspect',
+        title: 'Verify',
         field: 'instances_view',
         hozAlign: 'center',
-        width: 80,
-        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;">Inspect</button>`,
+        responsive: 0,
+        minWidth: 90,
+        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
       },
     ];
 
     activeTable = createValidationTable(mountEl, {
       data: rows,
       columns,
+      layout: 'fitDataFill',
       exportFilename: 'raw-data-klines',
       sheetName: 'RawData',
       pageSize: 25,
@@ -272,29 +367,35 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       {
         title: 'KPI Definition',
         field: 'label',
+        frozen: true,
+        responsive: 0,
         formatter: (c) => `<strong style="color: var(--text-primary);">${c.getValue()}</strong>`,
-        widthGrow: 2,
+        minWidth: 160,
       },
       {
         title: 'Value',
         field: 'value',
         hozAlign: 'right',
-        formatter: (c) => `<span class="font-mono font-semibold" style="font-size: 13px;">${c.getValue()}</span>`,
+        responsive: 0,
+        minWidth: 100,
+        formatter: (c) => `<span class="font-tabular font-semibold" style="font-size: 13.5px;">${c.getValue()}</span>`,
       },
-      { title: 'Unit', field: 'unit', hozAlign: 'center', width: 90 },
+      { title: 'Unit', field: 'unit', hozAlign: 'center', minWidth: 80, responsive: 1 },
       {
         title: 'Observations (n)',
         field: 'n',
         hozAlign: 'right',
-        width: 140,
-        formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
+        responsive: 1,
+        minWidth: 130,
+        formatter: (c) => `<span class="font-tabular text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
       },
       {
-        title: 'Instances',
+        title: 'Verify',
         field: 'instances_view',
         hozAlign: 'center',
-        width: 110,
-        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">View Math &rarr;</button>`,
+        responsive: 0,
+        minWidth: 90,
+        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
       },
     ];
 
@@ -365,13 +466,17 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       {
         title: seasonalityBucket === 'hour' ? 'Hour (UTC)' : 'Day of Week',
         field: 'bucketLabel',
+        frozen: true,
+        responsive: 0,
         formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>`,
-        width: 140,
+        minWidth: 120,
       },
       {
         title: 'Mean Ret (bps)',
         field: 'mean_return',
         hozAlign: 'right',
+        responsive: 0,
+        minWidth: 105,
         formatter: (c) => {
           const v = Number(c.getValue());
           const cls = v >= 0 ? 'text-positive' : 'text-negative';
@@ -382,50 +487,69 @@ export function createValidationView(container: HTMLElement, getContext: () => V
         title: 'Volatility (bps)',
         field: 'volatility',
         hozAlign: 'right',
+        responsive: 1,
+        minWidth: 105,
         formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toFixed(2)}</span>`,
       },
       {
         title: 'Win Rate (%)',
         field: 'win_rate',
         hozAlign: 'right',
+        responsive: 1,
+        minWidth: 95,
         formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toFixed(1)}%</span>`,
       },
       {
         title: 'Total Vol (BTC)',
         field: 'total_volume',
         hozAlign: 'right',
-        formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toLocaleString('en-US', { maximumFractionDigits: 1 })}</span>`,
+        responsive: 2,
+        minWidth: 110,
+        formatter: (c) => {
+          const val = Number(c.getValue());
+          const full = val.toLocaleString('en-US', { maximumFractionDigits: 1 });
+          const abbr = formatVolumeAbbreviated(val);
+          return `<span class="font-tabular" title="${full} BTC">${abbr}</span>`;
+        },
       },
       {
         title: 'Taker Ratio',
         field: 'taker_buy_ratio',
         hozAlign: 'right',
-        formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toFixed(4)}</span>`,
+        responsive: 2,
+        minWidth: 95,
+        formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toFixed(4)}</span>`,
       },
       {
         title: 'Range (bps)',
         field: 'mean_hl_range',
         hozAlign: 'right',
+        responsive: 2,
+        minWidth: 95,
         formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toFixed(1)}</span>`,
       },
       {
         title: 'Observations (n)',
         field: 'n',
         hozAlign: 'right',
-        formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
+        responsive: 1,
+        minWidth: 130,
+        formatter: (c) => `<span class="font-tabular text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
       },
       {
-        title: 'Instances',
+        title: 'Verify',
         field: 'instances_view',
         hozAlign: 'center',
-        width: 110,
-        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+        responsive: 0,
+        minWidth: 90,
+        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
       },
     ];
 
     activeTable = createValidationTable(mountEl, {
       data: tableData,
       columns,
+      layout: 'fitDataFill',
       pagination: false,
       exportFilename: `seasonality-${seasonalityBucket}-validation`,
       sheetName: `Seasonality_${seasonalityBucket}`,
@@ -490,26 +614,39 @@ export function createValidationView(container: HTMLElement, getContext: () => V
     }));
 
     const columns: ColumnDefinition[] = [
-      { title: 'Day of Week', field: 'dayLabel', width: 140, headerFilter: 'input' },
-      { title: 'Hour (UTC)', field: 'hourLabel', width: 130, headerFilter: 'input' },
+      { title: 'Day of Week', field: 'dayLabel', frozen: true, responsive: 0, minWidth: 120, headerFilter: 'input' },
+      { title: 'Hour (UTC)', field: 'hourLabel', responsive: 0, minWidth: 110, headerFilter: 'input' },
       {
         title: 'Value',
         field: 'formattedValue',
         hozAlign: 'right',
-        formatter: (c) => `<span class="font-mono font-semibold">${c.getValue()}</span>`,
+        responsive: 0,
+        minWidth: 100,
+        formatter: (c) => {
+          const row = c.getRow().getData();
+          if (heatmapMetric === 'total_volume') {
+            const full = Number(row.value).toLocaleString('en-US', { maximumFractionDigits: 1 });
+            const abbr = formatVolumeAbbreviated(row.value);
+            return `<span class="font-tabular font-semibold" title="${full} BTC">${abbr}</span>`;
+          }
+          return `<span class="font-tabular font-semibold">${c.getValue()}</span>`;
+        },
       },
       {
         title: 'Observations (n)',
         field: 'n',
         hozAlign: 'right',
-        formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
+        responsive: 1,
+        minWidth: 130,
+        formatter: (c) => `<span class="font-tabular text-muted">${Number(c.getValue()).toLocaleString('en-US')}</span>`,
       },
       {
-        title: 'Instances',
+        title: 'Verify',
         field: 'instances_view',
         hozAlign: 'center',
-        width: 120,
-        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+        responsive: 0,
+        minWidth: 90,
+        formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
       },
     ];
 
@@ -582,15 +719,16 @@ export function createValidationView(container: HTMLElement, getContext: () => V
         : [];
 
       const columns: ColumnDefinition[] = [
-        { title: 'Statistic', field: 'stat', formatter: (c) => `<strong>${c.getValue()}</strong>` },
-        { title: 'Value', field: 'value', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
-        { title: 'Observations (n)', field: 'n', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Statistic', field: 'stat', frozen: true, responsive: 0, minWidth: 160, formatter: (c) => `<strong>${c.getValue()}</strong>` },
+        { title: 'Value', field: 'value', hozAlign: 'right', responsive: 0, minWidth: 100, formatter: (c) => `<span class="font-tabular font-semibold">${c.getValue()}</span>` },
+        { title: 'Observations (n)', field: 'n', hozAlign: 'right', responsive: 1, minWidth: 130, formatter: (c) => `<span class="font-tabular text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">View Returns &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -624,16 +762,17 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       }));
 
       const columns: ColumnDefinition[] = [
-        { title: 'Bin #', field: 'binIndex', width: 80, hozAlign: 'center' },
-        { title: 'Return Range', field: 'rangeBps', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
-        { title: 'Observations (n)', field: 'count', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toLocaleString()}</span>` },
-        { title: 'Share (%)', field: 'pct', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
+        { title: 'Bin #', field: 'binIndex', frozen: true, responsive: 0, minWidth: 70, hozAlign: 'center' },
+        { title: 'Return Range', field: 'rangeBps', responsive: 0, minWidth: 140, formatter: (c) => `<span class="font-tabular">${c.getValue()}</span>` },
+        { title: 'Observations (n)', field: 'count', hozAlign: 'right', responsive: 1, minWidth: 130, formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Share (%)', field: 'pct', hozAlign: 'right', responsive: 1, minWidth: 90, formatter: (c) => `<span class="font-tabular">${c.getValue()}</span>` },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -670,20 +809,23 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       }));
 
       const columns: ColumnDefinition[] = [
-        { title: 'Time (UTC)', field: 'timeUtc', width: 160, headerFilter: 'input' },
-        { title: 'Window', field: 'window', width: 100, hozAlign: 'center', formatter: () => `${rollingWindow}h` },
+        { title: 'Time (UTC)', field: 'timeUtc', frozen: true, responsive: 0, minWidth: 150, headerFilter: 'input' },
+        { title: 'Window', field: 'window', minWidth: 80, hozAlign: 'center', responsive: 1, formatter: () => `${rollingWindow}h` },
         {
           title: 'Volatility (bps)',
           field: 'volBps',
           hozAlign: 'right',
-          formatter: (c) => `<span class="font-mono font-semibold">${Number(c.getValue()).toFixed(2)}</span>`,
+          responsive: 0,
+          minWidth: 110,
+          formatter: (c) => `<span class="font-tabular font-semibold">${Number(c.getValue()).toFixed(2)}</span>`,
         },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -741,18 +883,21 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       }));
 
       const columns: ColumnDefinition[] = [
-        { title: 'Hour (UTC)', field: 'hourLabel', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>`, width: 140 },
+        { title: 'Hour (UTC)', field: 'hourLabel', frozen: true, responsive: 0, minWidth: 120, formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
         {
           title: 'Taker Buy Ratio',
           field: 'takerRatio',
           hozAlign: 'right',
-          formatter: (c) => `<span class="font-mono font-semibold">${Number(c.getValue()).toFixed(4)}</span>`,
+          responsive: 0,
+          minWidth: 100,
+          formatter: (c) => `<span class="font-tabular font-semibold">${Number(c.getValue()).toFixed(4)}</span>`,
         },
         {
           title: 'Dominance',
           field: 'takerRatio',
           hozAlign: 'center',
-          width: 140,
+          responsive: 1,
+          minWidth: 130,
           formatter: (c) => {
             const v = Number(c.getValue());
             return v > 0.50
@@ -760,13 +905,14 @@ export function createValidationView(container: HTMLElement, getContext: () => V
               : '<span class="badge badge-warning">Seller Dominant</span>';
           },
         },
-        { title: 'Observations (n)', field: 'n', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Observations (n)', field: 'n', hozAlign: 'right', responsive: 1, minWidth: 130, formatter: (c) => `<span class="font-tabular text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -803,29 +949,41 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       }));
 
       const columns: ColumnDefinition[] = [
-        { title: 'Time (UTC)', field: 'timeUtc', width: 160, headerFilter: 'input' },
+        { title: 'Time (UTC)', field: 'timeUtc', frozen: true, responsive: 0, minWidth: 150, headerFilter: 'input' },
         {
           title: 'Bar Delta (BTC)',
           field: 'barDelta',
           hozAlign: 'right',
+          responsive: 1,
+          minWidth: 120,
           formatter: (c) => {
             const v = Number(c.getValue());
             const cls = v >= 0 ? 'text-positive' : 'text-negative';
-            return `<span class="${cls} font-mono">${v >= 0 ? '+' : ''}${v.toFixed(2)}</span>`;
+            const full = (v >= 0 ? '+' : '') + v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            const abbr = (v >= 0 ? '+' : '') + formatVolumeAbbreviated(v);
+            return `<span class="${cls} font-tabular" title="${full} BTC">${abbr}</span>`;
           },
         },
         {
           title: 'Cumulative Delta (BTC)',
           field: 'cumDelta',
           hozAlign: 'right',
-          formatter: (c) => `<span class="font-mono font-semibold">${Number(c.getValue()).toLocaleString('en-US', { maximumFractionDigits: 1 })}</span>`,
+          responsive: 0,
+          minWidth: 130,
+          formatter: (c) => {
+            const v = Number(c.getValue());
+            const full = v.toLocaleString('en-US', { maximumFractionDigits: 1 });
+            const abbr = formatVolumeAbbreviated(v);
+            return `<span class="font-tabular font-semibold" title="${full} BTC">${abbr}</span>`;
+          },
         },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -891,26 +1049,29 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       });
 
       const columns: ColumnDefinition[] = [
-        { title: 'Year', field: 'year', width: 90, hozAlign: 'center', headerFilter: 'input' },
-        { title: 'Month', field: 'monthName', width: 120 },
-        { title: 'First Open', field: 'startPrice', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
-        { title: 'Last Close', field: 'endPrice', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        { title: 'Year', field: 'year', frozen: true, responsive: 0, minWidth: 80, hozAlign: 'center', headerFilter: 'input' },
+        { title: 'Month', field: 'monthName', responsive: 0, minWidth: 110 },
+        { title: 'First Open', field: 'startPrice', hozAlign: 'right', responsive: 1, minWidth: 100, formatter: (c) => `<span class="font-tabular">$${Number(c.getValue()).toFixed(1)}</span>` },
+        { title: 'Last Close', field: 'endPrice', hozAlign: 'right', responsive: 1, minWidth: 100, formatter: (c) => `<span class="font-tabular">$${Number(c.getValue()).toFixed(1)}</span>` },
         {
           title: 'Return (%)',
           field: 'returnPct',
           hozAlign: 'right',
+          responsive: 0,
+          minWidth: 100,
           formatter: (c) => {
             const v = Number(c.getValue());
             const cls = v >= 0 ? 'text-positive' : 'text-negative';
-            return `<span class="${cls} font-mono font-semibold">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+            return `<span class="${cls} font-tabular font-semibold">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
           },
         },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -962,26 +1123,29 @@ export function createValidationView(container: HTMLElement, getContext: () => V
         });
 
       const columns: ColumnDefinition[] = [
-        { title: 'Year', field: 'year', width: 100, hozAlign: 'center', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
-        { title: 'Year Open', field: 'firstOpen', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
-        { title: 'Year Close', field: 'lastClose', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        { title: 'Year', field: 'year', frozen: true, responsive: 0, minWidth: 80, hozAlign: 'center', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
+        { title: 'Year Open', field: 'firstOpen', hozAlign: 'right', responsive: 1, minWidth: 100, formatter: (c) => `<span class="font-tabular">$${Number(c.getValue()).toFixed(1)}</span>` },
+        { title: 'Year Close', field: 'lastClose', hozAlign: 'right', responsive: 1, minWidth: 100, formatter: (c) => `<span class="font-tabular">$${Number(c.getValue()).toFixed(1)}</span>` },
         {
           title: 'Compounded YTD Return (%)',
           field: 'ytdPct',
           hozAlign: 'right',
+          responsive: 0,
+          minWidth: 120,
           formatter: (c) => {
             const v = Number(c.getValue());
             const cls = v >= 0 ? 'text-positive' : 'text-negative';
-            return `<span class="${cls} font-mono font-semibold">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+            return `<span class="${cls} font-tabular font-semibold">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
           },
         },
-        { title: 'Months', field: 'monthCount', hozAlign: 'center', width: 90 },
+        { title: 'Months', field: 'monthCount', hozAlign: 'center', responsive: 1, minWidth: 80 },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Drill Down &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -1018,24 +1182,27 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       }));
 
       const columns: ColumnDefinition[] = [
-        { title: 'Time (UTC)', field: 'timeUtc', width: 160, headerFilter: 'input' },
-        { title: 'Close Price', field: 'close', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
-        { title: 'High-Water Mark', field: 'peak', hozAlign: 'right', formatter: (c) => `$${Number(c.getValue()).toFixed(1)}` },
+        { title: 'Time (UTC)', field: 'timeUtc', frozen: true, responsive: 0, minWidth: 150, headerFilter: 'input' },
+        { title: 'Close Price', field: 'close', hozAlign: 'right', responsive: 0, minWidth: 100, formatter: (c) => `<span class="font-tabular">$${Number(c.getValue()).toFixed(1)}</span>` },
+        { title: 'High-Water Mark', field: 'peak', hozAlign: 'right', responsive: 1, minWidth: 100, formatter: (c) => `<span class="font-tabular">$${Number(c.getValue()).toFixed(1)}</span>` },
         {
           title: 'Drawdown (%)',
           field: 'drawdownPct',
           hozAlign: 'right',
+          responsive: 0,
+          minWidth: 110,
           formatter: (c) => {
             const v = Number(c.getValue());
-            return `<span class="text-negative font-mono">${v.toFixed(2)}%</span>`;
+            return `<span class="text-negative font-tabular">${v.toFixed(2)}%</span>`;
           },
         },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -1100,16 +1267,17 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       }));
 
       const columns: ColumnDefinition[] = [
-        { title: 'Gap #', field: 'index', width: 80, hozAlign: 'center' },
-        { title: 'Outage Start (UTC)', field: 'startUtc', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
-        { title: 'Outage End (UTC)', field: 'endUtc', formatter: (c) => `<span class="font-mono">${c.getValue()}</span>` },
-        { title: 'Missing Hours', field: 'hours', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-warning font-semibold">${c.getValue()}h</span>` },
+        { title: 'Gap #', field: 'index', frozen: true, responsive: 0, minWidth: 70, hozAlign: 'center' },
+        { title: 'Outage Start (UTC)', field: 'startUtc', responsive: 0, minWidth: 150, formatter: (c) => `<span class="font-tabular">${c.getValue()}</span>` },
+        { title: 'Outage End (UTC)', field: 'endUtc', responsive: 0, minWidth: 150, formatter: (c) => `<span class="font-tabular">${c.getValue()}</span>` },
+        { title: 'Missing Hours', field: 'hours', hozAlign: 'right', responsive: 1, minWidth: 110, formatter: (c) => `<span class="font-tabular text-warning font-semibold">${c.getValue()}h</span>` },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 130,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Inspect Bounding &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -1157,22 +1325,25 @@ export function createValidationView(container: HTMLElement, getContext: () => V
         });
 
       const columns: ColumnDefinition[] = [
-        { title: 'Year', field: 'year', width: 100, hozAlign: 'center', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
-        { title: 'Loaded Bars (n)', field: 'rows', hozAlign: 'right', formatter: (c) => `<span class="font-mono">${Number(c.getValue()).toLocaleString()}</span>` },
-        { title: 'Expected Hours', field: 'expected', hozAlign: 'right', formatter: (c) => `<span class="font-mono text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
-        { title: 'Coverage (%)', field: 'covPct', hozAlign: 'right', formatter: (c) => `<span class="font-mono font-semibold">${c.getValue()}</span>` },
+        { title: 'Year', field: 'year', frozen: true, responsive: 0, minWidth: 80, hozAlign: 'center', formatter: (c) => `<strong class="font-mono">${c.getValue()}</strong>` },
+        { title: 'Loaded Bars (n)', field: 'rows', hozAlign: 'right', responsive: 0, minWidth: 130, formatter: (c) => `<span class="font-tabular">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Expected Hours', field: 'expected', hozAlign: 'right', responsive: 1, minWidth: 120, formatter: (c) => `<span class="font-tabular text-muted">${Number(c.getValue()).toLocaleString()}</span>` },
+        { title: 'Coverage (%)', field: 'covPct', hozAlign: 'right', responsive: 0, minWidth: 100, formatter: (c) => `<span class="font-tabular font-semibold">${c.getValue()}</span>` },
         {
           title: 'Audit Status',
           field: 'status',
           hozAlign: 'center',
+          responsive: 1,
+          minWidth: 140,
           formatter: (c) => `<span class="badge ${String(c.getValue()).includes('Grade') ? 'badge-positive' : 'badge-warning'}">${c.getValue()}</span>`,
         },
         {
-          title: 'Instances',
+          title: 'Verify',
           field: 'instances_view',
           hozAlign: 'center',
-          width: 120,
-          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">View Bars &rarr;</button>`,
+          responsive: 0,
+          minWidth: 90,
+          formatter: () => `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;">Verify &rarr;</button>`,
         },
       ];
 
@@ -1211,8 +1382,8 @@ export function createValidationView(container: HTMLElement, getContext: () => V
       ];
 
       const columns: ColumnDefinition[] = [
-        { title: 'Provenance Property', field: 'property', width: 260, formatter: (c) => `<strong>${c.getValue()}</strong>` },
-        { title: 'Verified Release Value', field: 'value', formatter: (c) => `<span class="font-mono">${escapeHtml(String(c.getValue()))}</span>` },
+        { title: 'Provenance Property', field: 'property', frozen: true, responsive: 0, minWidth: 220, formatter: (c) => `<strong>${c.getValue()}</strong>` },
+        { title: 'Verified Release Value', field: 'value', responsive: 0, minWidth: 240, formatter: (c) => `<span class="font-tabular">${escapeHtml(String(c.getValue()))}</span>` },
       ];
 
       activeTable = createValidationTable(mountEl, {

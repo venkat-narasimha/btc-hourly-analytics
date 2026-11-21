@@ -118,13 +118,28 @@ function buildTopbarStats(): TopbarStats {
   const firstDate = new Date(allData[0].open_time_ms);
   const lastDate = new Date(allData[allData.length - 1].open_time_ms);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const pad = (n: number) => String(n).padStart(2, '0');
   const liveAgeHours = metaData?.last_open_ms ? (Date.now() - metaData.last_open_ms) / 3.6e6 : 0;
+
+  const dataThroughStr = `${months[lastDate.getUTCMonth()]} ${lastDate.getUTCDate()} ${pad(lastDate.getUTCHours())}:00 UTC`;
+
+  let refreshedStr = '—';
+  if (metaData?.generated_at_utc) {
+    try {
+      const refDate = new Date(metaData.generated_at_utc);
+      refreshedStr = `${months[refDate.getUTCMonth()]} ${refDate.getUTCDate()} ${pad(refDate.getUTCHours())}:${pad(refDate.getUTCMinutes())} UTC`;
+    } catch {
+      refreshedStr = metaData.generated_at_utc.substring(0, 16) + ' UTC';
+    }
+  }
+
   return {
     totalBars: allData.length,
     coveragePct: qualityData?.coverage_pct ?? 100,
     dateRange: `${months[firstDate.getUTCMonth()]} ${firstDate.getUTCFullYear()} – ${months[lastDate.getUTCMonth()]} ${lastDate.getUTCFullYear()}`,
     latestPrice: allData[allData.length - 1]?.close ?? null,
-    lastUpdated: metaData?.generated_at_utc ? metaData.generated_at_utc.substring(0, 10) : '',
+    dataThrough: dataThroughStr,
+    refreshedAt: refreshedStr,
     isStale: liveAgeHours > 48,
   };
 }
